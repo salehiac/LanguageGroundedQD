@@ -1,0 +1,8 @@
+
+1. Add a script that loads an archive, plays it, and verifies that the final BD is the same that is in the archive for each policy
+2. Add a script that saves entire trajectoirs (action, obs) to the archive 
+3. Add a script that load that archive and then annotates it with semantic info (you might need to do a bit of manual defining here)
+4. Add the lllm prompting part to generate descriptions for each of the trajectories
+5. Verify dataset
+
+Now... The transformer part 

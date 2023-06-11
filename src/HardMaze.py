@@ -13,15 +13,13 @@ import random
 from scoop import futures
 from termcolor import colored
 
-
 import gym
 import gym_fastsim
 import matplotlib.pyplot as plt
 
-import BehaviorDescr
+from NS import GenericBD 
 import MiscUtils
 sys.path.append("..")
-
 
 class HardMaze:
     def __init__(self, bd_type="generic", max_steps=2000, display=False, assets={}):
@@ -43,7 +41,7 @@ class HardMaze:
         self.max_steps=max_steps
 
         self.bd_type=bd_type
-        self.bd_extractor=BehaviorDescr.GenericBD(dims=2,num=1)#dims=2 for position, no orientation, num is number of samples (here we take the last point in the trajectory)
+        self.bd_extractor=GenericBD(dims=2,num=1)
         self.dist_thresh=1 #(norm, in pixels) minimum distance that a point x in the population should have to its nearest neighbour in the archive+pop
         
         self.goal_radius=42
@@ -85,7 +83,7 @@ class HardMaze:
             ended=True
            
         bd=None
-        if isinstance(self.bd_extractor, BehaviorDescr.GenericBD):
+        if isinstance(self.bd_extractor, GenericBD):
             bd=self.bd_extractor.extract_behavior(np.array(behavior_info).reshape(len(behavior_info), len(behavior_info[0]))) 
         
         return fitness, bd, task_solved, None , None, None, None
