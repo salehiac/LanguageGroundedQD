@@ -65,7 +65,6 @@ class Scene:
         scale should be in (0,1]
         """
         if im_path[-4:]==".svg":
-            print(f"reading {im_path}")
             if change_back:
                 random_string=functools.reduce(lambda x,y:x+y,np.random.choice(list(string.ascii_lowercase)+list(string.digits),size=15).tolist(),"")
                 tmp_out_path=f"/tmp/SVG_{random_string}.svg"
@@ -106,16 +105,53 @@ class Scene:
         else:
             return layout
 
-    def display(self):
+    def display(self,display_bbox,hold_on=False):
 
         layout=self.layout
         for name,_ in self.object_dict.items():
-            layout=self.display_object(name,display=False,layout=layout)
+            layout=self.display_object(name,display=False,layout=layout,display_bbox=display_bbox)
 
-        plt.imshow(layout)
-        plt.show()
+        fig,ax=plt.subplots()
+        ax.imshow(layout)
+
+        if not hold_on:
+            plt.show()
+
+        return fig,ax
+
+    def point_near_objects(self,x,y):
+
+        thresh=30
+        near_objects={}
+        for name, kk in self.object_dict.items():
+            pos,_,bbox=kk
+            dist=np.linalg.norm(np.array(pos)-np.array([x,y]))
+            #print(name,dist)
+            if dist<thresh:
+
+                offset=6
+                if x<pos[0]-offset:
+                    horizontal_dir="west"
+                elif x>pos[0]+offset:
+                    horizontal_dir="east"
+                else:
+                    horizontal_dir=""
+
+                if y<pos[1]-offset:
+                    vertical_dir="north"
+                elif y>pos[1]+offset:
+                    vertical_dir="south"
+                else:
+                    vertical_dir=""
+               
+                if vertical_dir or horizontal_dir:
+                    near_objects[f"to the {vertical_dir} {horizontal_dir} of {name}"]=dist
+                else:
+                    near_objects[f"on {name}"]=dist
 
 
+
+        return near_objects
 
 def read_svg_file(svg_file_path):
     # Convert SVG to PNG using CairoSVG
@@ -179,15 +215,15 @@ def create_env_with_objects():
     scene.add_obj("./openclip_vector_images/bathtub.svg",name="bathtub",pos=(58,103),scale=0.086,change_back=True,reverse_rgb=True)
     scene.add_obj("./openclip_vector_images/table.svg",name="table",pos=(123,175),scale=0.2,change_back=True,reverse_rgb=True)
     scene.add_obj("./openclip_vector_images/stove.svg",name="stove",pos=(64,175),scale=0.03,change_back=True,reverse_rgb=True)
-    scene.display()
 
     return scene
 
 
+
 if __name__=="__main__":
 
-    #add_colors=False
-    add_colors=True
+    add_colors=False
+    #add_colors=True
     if add_colors:
         x=cv2.imread("maze_19_2.pbm")
         y=x[10:x.shape[0]-10,10:x.shape[1]-10,:]
@@ -202,4 +238,18 @@ if __name__=="__main__":
         plt.show()
     if 1:
         scene=create_env_with_objects()
+        fig,_=scene.display(display_bbox=False,hold_on=True)
+
+        # Event handler function for mouse clicks
+        def on_click(event):
+            if event.button == 1:  # Left mouse button
+                x = int(event.xdata)
+                y = int(event.ydata)
+                near_objects=scene.point_near_objects(x, y)
+                print(f"objects near {x},{y}: {near_objects}")
+
+        # Register the event handler function
+        cid = fig.canvas.mpl_connect('button_press_event', on_click)
+        plt.show()
+
 
