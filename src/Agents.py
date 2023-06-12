@@ -20,17 +20,17 @@ class Agent(ABC):
     
     def __init__(self, idx):
         self._fitness=None
+        self._tau=None#a trajectory {(o_i, a_i)}_i
+        self._behavior=None#behavior is the complete traj in behavior space, which is mapped to some _behavior_descr
         self._behavior_descr=None
-        self._complete_trajs=None
         self._nov=None
         self._idx=idx
 
         self._solved_task=False
-        self._task_info={}#it can be useful (e.g. for meta-world) to store information about the task that the agent has solved
-                          #as tasks are randomly sampled at runtime
-        self._created_at_gen=-1 #to compute age
-        self._parent_idx=-1#hacky way of computing bd distance between parent and child
-        self._root=-1#to keep track of the root of an evolutionnary path
+        self._task_info={}
+        self._created_at_gen=-1 
+        self._parent_idx=-1
+        self._root=-1#useful for meta-QD problems
         self._bd_dist_to_parent_bd=-1
         self._age=-1
 
@@ -39,15 +39,10 @@ class Agent(ABC):
         self._mean_adaptation_speed=float("inf")
         self._adaptation_speed_lst=[]
 
-        self._sum_of_model_params=None #for debug
-
-        self._last_eval_init_state=None
-        self._first_action=None
 
     def reset_tracking_attrs(self):
         self._fitness=None
         self._behavior_descr=None
-        self._complete_trajs=None#for debug and visualisation only
         self._nov=None
 
         self._solved_task=False
@@ -62,10 +57,6 @@ class Agent(ABC):
         self._mean_adaptation_speed=float("inf")
         self._adaptation_speed_lst=[]
 
-        self._sum_of_model_params=None #for debug
-
-        self._last_eval_init_state=None
-        self._first_action=None
 
 
 class Dummy(torch.nn.Module, Agent):

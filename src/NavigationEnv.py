@@ -21,7 +21,7 @@ from NS import GenericBD
 import MiscUtils
 sys.path.append("..")
 
-class HardMaze:
+class NavigationEnv:
     def __init__(self, bd_type="generic", max_steps=2000, display=False, assets={}):
         
         rand_str=MiscUtils.rand_string(alpha=True, numerical=False) + "-v1"
@@ -45,6 +45,7 @@ class HardMaze:
         self.dist_thresh=1 #(norm, in pixels) minimum distance that a point x in the population should have to its nearest neighbour in the archive+pop
         
         self.goal_radius=42
+        self.display_goal=False
 
         self.maze_im=cv2.imread(assets["env_im"]) if len(assets) else None
         self.num_saved=0
@@ -62,9 +63,10 @@ class HardMaze:
 
         obs=self.env.reset()
         fitness=0
-        behavior_info=[] 
 
         task_solved=False
+        tau=[]#(obs,action)
+        behavior=[] 
         for i in range(self.max_steps):
             if self.display:
                 self.env.render()
@@ -72,9 +74,10 @@ class HardMaze:
             
             action=ag(obs)
             action=action.flatten().tolist() if isinstance(action, np.ndarray) else action
+            tau.append({"obs":obs,"action":action})
             obs, reward, ended, info=self.env.step(action)
             fitness+=reward
-            behavior_info.append(info["robot_pos"])
+            behavior.append(info["robot_pos"])
             
         #check if task solved
         dist_to_goal=np.linalg.norm(np.array(info["robot_pos"][:2])-np.array([self.env.goal.get_x(), self.env.goal.get_y()]))
@@ -84,9 +87,31 @@ class HardMaze:
            
         bd=None
         if isinstance(self.bd_extractor, GenericBD):
-            bd=self.bd_extractor.extract_behavior(np.array(behavior_info).reshape(len(behavior_info), len(behavior_info[0]))) 
+            bd=self.bd_extractor.extract_behavior(np.array(behavior).reshape(len(behavior), len(behavior[0]))) 
         
-        return fitness, bd, task_solved, None , None, None, None
+        return fitness, tau, behavior, bd, task_solved
+
+    def visualise_behavior(self, ag,hold_on=False):
+
+        path2d=np.stack([x[:2] for x in ag._behavior])
+
+
+        real_w=self.env.map.get_real_w()
+        real_h=self.env.map.get_real_h()
+
+        path2d[:,0]=(path2d[:,0]/real_w)*self.maze_im.shape[1]
+        path2d[:,1]=(path2d[:,1]/real_h)*self.maze_im.shape[0]
+
+        plt.imshow(self.maze_im)
+        plt.plot(path2d[0,0],path2d[0,1],"ro")
+        plt.plot(path2d[:,0],path2d[:,1],"b")
+
+        if not hold_on:
+            plt.show()
+
+
+
+
 
     def visualise_bds(self,archive, population, quitely=True, save_to="",generation_num=-1):
         """
@@ -94,7 +119,6 @@ class HardMaze:
         """
         if quitely and not(len(save_to)):
             raise Exception("quitely=True requires save_to to be an existing directory")
-        #quitely=False
 
         arch_l=list(archive)
         pop_l=list(population)
@@ -102,7 +126,6 @@ class HardMaze:
         z=[x._behavior_descr for x in uu]
         z=np.concatenate(z,0)
         most_novel_individual_in_pop=np.argmax([x._nov for x in population])
-        #pdb.set_trace()
         real_w=self.env.map.get_real_w()
         real_h=self.env.map.get_real_h()
         z[:,0]=(z[:,0]/real_w)*self.maze_im.shape[1]
@@ -125,13 +148,14 @@ class HardMaze:
                 (int(z[len(arch_l)+most_novel_individual_in_pop,0]),int(z[len(arch_l)+most_novel_individual_in_pop,1])) , 3, color=MiscUtils.colors.red, thickness=-1)
         
         goal=self.env.map.get_goals()[0]
-        
-        maze_im=cv2.circle(maze_im, 
-                (int(goal.get_x()*self.maze_im.shape[0]/real_h),int(goal.get_y()*self.maze_im.shape[1]/real_w)),
-                3, (0,0,0), thickness=-1)
-        maze_im=cv2.circle(maze_im, 
-                (int(goal.get_x()*self.maze_im.shape[0]/real_h),int(goal.get_y()*self.maze_im.shape[1]/real_w)),
-                int(self.goal_radius*self.maze_im.shape[0]/real_h), (0,0,0), thickness=1)
+      
+        if self.display_goal:
+            maze_im=cv2.circle(maze_im, 
+                    (int(goal.get_x()*self.maze_im.shape[0]/real_h),int(goal.get_y()*self.maze_im.shape[1]/real_w)),
+                    3, (0,0,0), thickness=-1)
+            maze_im=cv2.circle(maze_im, 
+                    (int(goal.get_x()*self.maze_im.shape[0]/real_h),int(goal.get_y()*self.maze_im.shape[1]/real_w)),
+                    int(self.goal_radius*self.maze_im.shape[0]/real_h), (0,0,0), thickness=1)
 
         if not quitely:
             plt.imshow(maze_im)

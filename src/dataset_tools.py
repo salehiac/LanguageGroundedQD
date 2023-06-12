@@ -1,9 +1,10 @@
 import functools
+import argparse
 
 from deap import tools as deap_tools
 
 import Agents
-import HardMaze
+import NavigationEnv 
 import NS
 import MiscUtils
 
@@ -11,7 +12,7 @@ import MiscUtils
 if __name__=="__main__":
 
     assets={"env_im": "./env_assets/maze_19_2.pbm","xml_path":"./env_assets/maze_setup_5x5.xml"}
-    problem=HardMaze.HardMaze(bd_type="generic",max_steps=2000, assets=assets)
+    problem=NavigationEnv.NavigationEnv(bd_type="generic",max_steps=2000, assets=assets)
     
     nov_estimator= NS.ArchiveBasedNoveltyEstimator(k=15)
     arch=NS.ListArchive(max_size=10000,

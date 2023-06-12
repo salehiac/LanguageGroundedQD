@@ -11,6 +11,7 @@ from scoop import futures
 from termcolor import colored
 
 from sklearn.neighbors import KDTree
+import matplotlib.pyplot as plt
 
 import MiscUtils
 
@@ -201,22 +202,27 @@ class NoveltySearch:
         tt2=time.time()
         elapsed=tt2-tt1
         task_solvers=[]
+        show_behaviors=False
         for ag_i in range(len(agents)):
             ag=agents[ag_i]
             ag._fitness=xx[ag_i][0]
-            ag._behavior_descr=xx[ag_i][1]
-            ag._solved_task=xx[ag_i][2]
-            ag._complete_trajs=xx[ag_i][3]#for debug only, disable it later
-            ag._last_eval_init_state=xx[ag_i][4]
-            ag._last_eval_init_obs=xx[ag_i][5]
-            ag._first_action=xx[ag_i][6]
-                       
+            ag._tau=xx[ag_i][1]
+            ag._behavior=xx[ag_i][2]
+            ag._behavior_descr=xx[ag_i][3]
+            ag._solved_task=xx[ag_i][4]
+
+            if show_behaviors:
+                self.problem.visualise_behavior(ag,hold_on=True)
+            
             if hasattr(self.problem, "get_task_info"):
                 ag._task_info=self.problem.get_task_info()
                 
             
             if ag._solved_task:
                 task_solvers.append(ag)
+        
+        if show_behaviors:
+            plt.show()
 
             
         return task_solvers, elapsed
