@@ -91,7 +91,7 @@ class NavigationEnv:
         
         return fitness, tau, behavior, bd, task_solved
 
-    def visualise_behavior(self, ag,hold_on=False):
+    def visualise_behavior(self, ag,hold_on=False,save_to=""):
 
         path2d=np.stack([x[:2] for x in ag._behavior])
 
@@ -106,11 +106,15 @@ class NavigationEnv:
         plt.plot(path2d[0,0],path2d[0,1],"ro")
         plt.plot(path2d[:,0],path2d[:,1],"b")
 
-        if not hold_on:
+        if save_to:
+            plt.savefig(save_to)
+            plt.close()
+        elif not hold_on:
             plt.show()
-
-
-
+            plt.close()
+       
+        print("save_to==",save_to)
+        assert not (save_to and hold_on), "can't specify hold on while saving"
 
 
     def visualise_bds(self,archive, population, quitely=True, save_to="",generation_num=-1):
