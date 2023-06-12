@@ -89,9 +89,6 @@ def verify_repeatability_individual(ag):
 
     return sum(comp)==len(comp)
    
-
-
-
     
 if __name__=="__main__":
 
