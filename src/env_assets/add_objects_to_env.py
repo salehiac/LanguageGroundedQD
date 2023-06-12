@@ -41,7 +41,7 @@ def tile_im(im_in, num_tiles=3):
     return im
 
 
-class bbox:
+class Bbox:
 
     def __init__(self,left,right,up,down):
         self.left=left
@@ -81,20 +81,23 @@ class Scene:
             im=cv2.merge([b,g,r])
         im=cv2.resize(im, dsize=(int(im.shape[1]*scale),int(im.shape[0]*scale)), interpolation = cv2.INTER_AREA)
 
-        self.object_dict[name]=(pos,im)
+        p_h=im.shape[0]
+        offset_h=p_h%2
+        p_w=im.shape[1]
+        offset_w=p_w%2
+        bbox=Bbox(up=max(0,pos[1]-p_h//2),down=min(pos[1]+p_h//2+offset_h,self.layout.shape[0]),left=max(0,pos[0]-p_w//2),right=min(pos[0]+p_w//2+offset_w,self.layout.shape[1]))
+        
+        self.object_dict[name]=(pos,im,bbox)
 
 
-    def display_object(self,name,display=False,layout=None):
+    def display_object(self,name,display=False,layout=None,display_bbox=True):
 
         layout=self.layout if layout is None else layout
-        pos,patch=self.object_dict[name]
-        p_h=patch.shape[0]
-        offset_h=p_h%2
-        p_w=patch.shape[1]
-        offset_w=p_w%2
-        qq=layout[max(0,pos[1]-p_h//2):min(pos[1]+p_h//2+offset_h,layout.shape[0]), max(0,pos[0]-p_w//2): min(pos[0]+p_w//2+offset_w,layout.shape[1]),:]
-        #pdb.set_trace()
-        layout[max(0,pos[1]-p_h//2):min(pos[1]+p_h//2+offset_h,layout.shape[0]), max(0,pos[0]-p_w//2): min(pos[0]+p_w//2+offset_w,layout.shape[1]),:]=patch
+        pos,patch,bbox=self.object_dict[name]
+        layout[bbox.up:bbox.down,bbox.left:bbox.right,:]=patch
+
+        if display_bbox:
+            layout=cv2.rectangle(layout, (bbox.left, bbox.down), (bbox.right, bbox.up), (255, 0, 0), 2)
         
         if display:
             plt.imshow(layout)
@@ -114,7 +117,6 @@ class Scene:
 
 
 
-
 def read_svg_file(svg_file_path):
     # Convert SVG to PNG using CairoSVG
     png_image = svg2png(url=svg_file_path)
@@ -128,25 +130,6 @@ def read_svg_file(svg_file_path):
     return img
 
 
-
-#def change_svg_background(file_name, output_name):
-#    svg_tree = etree.parse(file_name)
-#    root = svg_tree.getroot()
-#    
-#    view_box = root.attrib['viewBox'].split()
-#    minx = float(view_box[0])
-#    miny = float(view_box[1])
-#    width = float(view_box[2])
-#    height = float(view_box[3])
-#
-#    black_rectangle = etree.Element("{http://www.w3.org/2000/svg}rect",
-#                                    x=str(minx), y=str(miny), width=str(width),
-#                                    height=str(height), fill='white')
-#
-#    root.insert(0, black_rectangle)
-#
-#    etree.ElementTree(root).write(output_name, pretty_print=True)
-#
 def change_svg_background(file_name, output_name):
     # Parse SVG file
     svg_tree = etree.parse(file_name)
@@ -181,11 +164,30 @@ def change_svg_background(file_name, output_name):
     # Write the output SVG file
     etree.ElementTree(root).write(output_name, pretty_print=True)
 
+def create_env_with_objects():
+    x=cv2.imread("maze_19_2.pbm")
+    scene=Scene(x)
+    scene.add_obj("./openclip_vector_images/freedo-Cactus.svg",name="cactus",pos=(180,133),scale=0.03,change_back=True)
+    scene.add_obj("./openclip_vector_images/table-fan_jh.svg",name="fan",pos=(60,60),scale=0.04,change_back=True)
+    scene.add_obj("./openclip_vector_images/Rfc1394-Blue-Sofa.svg",name="sofa",pos=(167,20),scale=0.1,change_back=True,reverse_rgb=True)
+    scene.add_obj("./openclip_vector_images/tan-bed.svg",name="bed",pos=(164,174),scale=0.3,change_back=True,reverse_rgb=True)
+    scene.add_obj("./openclip_vector_images/fridge.png",name="fridge",pos=(22,172),scale=0.1,change_back=False)
+    scene.add_obj("./openclip_vector_images/cabinet_wood.svg",name="cabinet",pos=(23,24),scale=0.016,change_back=True,reverse_rgb=True)
+    scene.add_obj("./openclip_vector_images/officeChair.svg",name="chair",pos=(98,175),scale=0.05,change_back=True,reverse_rgb=True)
+    scene.add_obj("./openclip_vector_images/statue.svg",name="statue",pos=(120,95),scale=0.3,change_back=True,reverse_rgb=True)
+    scene.add_obj("./openclip_vector_images/file_cabinet.svg",name="file_cabinet",pos=(140,62),scale=0.15,change_back=True,reverse_rgb=True)
+    scene.add_obj("./openclip_vector_images/bathtub.svg",name="bathtub",pos=(58,103),scale=0.086,change_back=True,reverse_rgb=True)
+    scene.add_obj("./openclip_vector_images/table.svg",name="table",pos=(123,175),scale=0.2,change_back=True,reverse_rgb=True)
+    scene.add_obj("./openclip_vector_images/stove.svg",name="stove",pos=(64,175),scale=0.03,change_back=True,reverse_rgb=True)
+    scene.display()
+
+    return scene
+
 
 if __name__=="__main__":
 
-    add_colors=False
-    #add_colors=True
+    #add_colors=False
+    add_colors=True
     if add_colors:
         x=cv2.imread("maze_19_2.pbm")
         y=x[10:x.shape[0]-10,10:x.shape[1]-10,:]
@@ -199,19 +201,5 @@ if __name__=="__main__":
         plt.imshow(x_tmp)
         plt.show()
     if 1:
-        x=cv2.imread("maze_19_2.pbm")
-        scene=Scene(x)
-        scene.add_obj("./openclip_vector_images/freedo-Cactus.svg",name="cactus",pos=(180,133),scale=0.03,change_back=True)
-        scene.add_obj("./openclip_vector_images/table-fan_jh.svg",name="fan",pos=(60,60),scale=0.04,change_back=True)
-        scene.add_obj("./openclip_vector_images/Rfc1394-Blue-Sofa.svg",name="sofa",pos=(167,20),scale=0.1,change_back=True,reverse_rgb=True)
-        scene.add_obj("./openclip_vector_images/tan-bed.svg",name="bed",pos=(164,174),scale=0.3,change_back=True,reverse_rgb=True)
-        scene.add_obj("./openclip_vector_images/fridge.png",name="fridge",pos=(22,172),scale=0.1,change_back=False)
-        scene.add_obj("./openclip_vector_images/cabinet_wood.svg",name="cabinet",pos=(23,24),scale=0.016,change_back=True,reverse_rgb=True)
-        scene.add_obj("./openclip_vector_images/officeChair.svg",name="chair",pos=(98,175),scale=0.05,change_back=True,reverse_rgb=True)
-        scene.add_obj("./openclip_vector_images/statue.svg",name="statue",pos=(120,95),scale=0.3,change_back=True,reverse_rgb=True)
-        scene.add_obj("./openclip_vector_images/file_cabinet.svg",name="file_cabinet",pos=(140,62),scale=0.15,change_back=True,reverse_rgb=True)
-        scene.add_obj("./openclip_vector_images/bathtub.svg",name="bathtub",pos=(58,103),scale=0.086,change_back=True,reverse_rgb=True)
-        scene.add_obj("./openclip_vector_images/table.svg",name="table",pos=(123,175),scale=0.2,change_back=True,reverse_rgb=True)
-        scene.add_obj("./openclip_vector_images/stove.svg",name="stove",pos=(64,175),scale=0.03,change_back=True,reverse_rgb=True)
-        scene.display()
+        scene=create_env_with_objects()
 
