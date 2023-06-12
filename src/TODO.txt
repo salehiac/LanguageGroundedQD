@@ -1,7 +1,13 @@
 
-1. Add a script that loads an archive, plays it, and verifies that the final BD is the same that is in the archive for each policy
-2. Add a script that saves entire trajectoirs (action, obs) to the archive 
+1̶.̶ ̶A̶d̶d̶ ̶a̶ ̶s̶c̶r̶i̶p̶t̶ ̶t̶h̶a̶t̶ ̶l̶o̶a̶d̶s̶ ̶a̶n̶ ̶a̶r̶c̶h̶i̶v̶e̶,̶ ̶p̶l̶a̶y̶s̶ ̶i̶t̶,̶ ̶a̶n̶d̶ ̶v̶e̶r̶i̶f̶i̶e̶s̶ ̶t̶h̶a̶t̶ ̶t̶h̶e̶ ̶f̶i̶n̶a̶l̶ ̶B̶D̶ ̶i̶s̶ ̶t̶h̶e̶ ̶s̶a̶m̶e̶ ̶t̶h̶a̶t̶ ̶i̶s̶ ̶i̶n̶ ̶t̶h̶e̶ ̶a̶r̶c̶h̶i̶v̶e̶ ̶f̶o̶r̶ ̶e̶a̶c̶h̶ ̶p̶o̶l̶i̶c̶y̶
+2̶.̶ ̶A̶d̶d̶ ̶a̶ ̶s̶c̶r̶i̶p̶t̶ ̶t̶h̶a̶t̶ ̶s̶a̶v̶e̶s̶ ̶e̶n̶t̶i̶r̶e̶ ̶t̶r̶a̶j̶e̶c̶t̶o̶i̶r̶s̶ ̶(̶a̶c̶t̶i̶o̶n̶,̶ ̶o̶b̶s̶)̶ ̶t̶o̶ ̶t̶h̶e̶ ̶a̶r̶c̶h̶i̶v̶e̶ 
 3. Add a script that load that archive and then annotates it with semantic info (you might need to do a bit of manual defining here)
+   3.1 I've added the new environment with bounding boxes and vector images (under creative commons) + added the color tiling
+       - I need to add an image tiling to the Scene and check on which tile the points fall
+       - NavigationEnv needs to have one of those Scence objects, and use it to annotate trajectories.
+       - I think that the annotation here needs to be coarser, i.e. it shouldn't be made on all timesteps. Maybe just keep the timesteps at which we reach a point with new semantic info, for
+         example: (timestep_15: "north of fridge", timestep_21: "", timestep_32: "south_west_of_bathtub", timestep_33: "west of bathtub", ....)
+       - I think you can map trajectories to manual descriptions: e.g. you can say the traj goes up from the initial point x if it never goes down there, but yeah, that might be ambiguous...
 4. Add the lllm prompting part to generate descriptions for each of the trajectories
 5. Verify dataset
 
