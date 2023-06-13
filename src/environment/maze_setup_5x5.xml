@@ -2,7 +2,7 @@
 <fastsim>
   <display enable="true"/>
   <!-- world -->
-  <map name="maze_19_2.pbm" size="600"/>
+  <map name="./ressources/maze_19_2.pbm" size="600"/>
 
 <!-- /!\ WARNING /!\ The robot "diameter" is actually a radius ! --> 
   <robot x="60" y="450" theta="45" diameter="10"/> <!-- Start pos : 0.1*size, 0.1*size, pi/4 -->

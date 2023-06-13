@@ -1,0 +1,1 @@
+from environment.add_objects_to_env import create_env_with_objects

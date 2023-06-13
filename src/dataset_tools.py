@@ -13,8 +13,9 @@ import Agents
 import NavigationEnv 
 import NS
 import MiscUtils
+from environment import create_env_with_objects
 
-_assets={"env_im": "./env_assets/maze_19_2.pbm","xml_path":"./env_assets/maze_setup_5x5.xml"}
+_assets={"env_im": "./environment/ressources/maze_19_2.pbm","xml_path":"./environment/maze_setup_5x5.xml"}
 
 def generate_paper_dataset(logs_root="/tmp/"):
     """

@@ -49,6 +49,7 @@ class NavigationEnv:
 
         self.maze_im=cv2.imread(assets["env_im"]) if len(assets) else None
         self.num_saved=0
+        self.ii=0
 
     def close(self):
         self.env.close()
@@ -95,9 +96,13 @@ class NavigationEnv:
 
         path2d=np.stack([x[:2] for x in ag._behavior])
 
+        np.save(f"/tmp/path2d_{self.ii}",path2d)
+        self.ii+=1
 
         real_w=self.env.map.get_real_w()
         real_h=self.env.map.get_real_h()
+
+        #print("real_w,real_h==",real_w,real_h)
 
         path2d[:,0]=(path2d[:,0]/real_w)*self.maze_im.shape[1]
         path2d[:,1]=(path2d[:,1]/real_h)*self.maze_im.shape[0]

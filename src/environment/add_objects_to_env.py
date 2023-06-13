@@ -115,7 +115,7 @@ class Scene:
         else:
             return layout
 
-    def display(self,display_bbox,hold_on=False):
+    def display(self,display_bbox,hold_on=False,trajectory:list=[],path2d_info=None):
 
         layout=self.layout
         for name,_ in self.object_dict.items():
@@ -124,12 +124,33 @@ class Scene:
         fig,axes=plt.subplots(1,2)
         #axes[0].imshow((0.7*layout+0.3*self.tiling).astype(np.uint8))
         axes[0].imshow(layout)
+        
+        if path2d_info is not None:
+            path2d, real_w, real_h=path2d_info
+            self.visualise_traj(path2d,real_w,real_h,hold_on=True,ax=axes[0])
+        
         axes[1].imshow(self.tiling)
 
         if not hold_on:
             plt.show()
 
         return fig,axes[0]
+
+    def visualise_traj(self, path2d:np.ndarray, real_w:float, real_h:float, hold_on:bool=True,ax=None):
+
+        path2d[:,0]=(path2d[:,0]/real_w)*self.layout.shape[1]
+        path2d[:,1]=(path2d[:,1]/real_h)*self.layout.shape[0]
+
+        if ax is not None:
+            ax.plot(path2d[0,0],path2d[0,1],"ro")
+            ax.plot(path2d[:,0],path2d[:,1],"b")
+        else:
+            plt.plot(path2d[0,0],path2d[0,1],"ro")
+            plt.plot(path2d[:,0],path2d[:,1],"b")
+
+        if not hold_on:
+            plt.show()
+            plt.close()
 
     def point_near_objects(self,x,y):
 
@@ -249,20 +270,20 @@ def change_svg_background(file_name, output_name):
     etree.ElementTree(root).write(output_name, pretty_print=True)
 
 def create_env_with_objects():
-    x=cv2.imread("maze_19_2.pbm")
+    x=cv2.imread("./ressources/maze_19_2.pbm")
     scene=Scene(x)
-    scene.add_obj("./openclip_vector_images/freedo-Cactus.svg",name="cactus",pos=(180,133),scale=0.03,change_back=True)
-    scene.add_obj("./openclip_vector_images/table-fan_jh.svg",name="fan",pos=(60,60),scale=0.04,change_back=True)
-    scene.add_obj("./openclip_vector_images/Rfc1394-Blue-Sofa.svg",name="sofa",pos=(167,20),scale=0.1,change_back=True,reverse_rgb=True)
-    scene.add_obj("./openclip_vector_images/tan-bed.svg",name="bed",pos=(164,174),scale=0.3,change_back=True,reverse_rgb=True)
-    scene.add_obj("./openclip_vector_images/fridge.png",name="fridge",pos=(22,172),scale=0.1,change_back=False)
-    scene.add_obj("./openclip_vector_images/cabinet_wood.svg",name="cabinet",pos=(23,24),scale=0.016,change_back=True,reverse_rgb=True)
-    scene.add_obj("./openclip_vector_images/officeChair.svg",name="chair",pos=(98,175),scale=0.05,change_back=True,reverse_rgb=True)
-    scene.add_obj("./openclip_vector_images/statue.svg",name="statue",pos=(120,95),scale=0.3,change_back=True,reverse_rgb=True)
-    scene.add_obj("./openclip_vector_images/file_cabinet.svg",name="file_cabinet",pos=(140,62),scale=0.15,change_back=True,reverse_rgb=True)
-    scene.add_obj("./openclip_vector_images/bathtub.svg",name="bathtub",pos=(58,103),scale=0.086,change_back=True,reverse_rgb=True)
-    scene.add_obj("./openclip_vector_images/table.svg",name="table",pos=(123,175),scale=0.2,change_back=True,reverse_rgb=True)
-    scene.add_obj("./openclip_vector_images/stove.svg",name="stove",pos=(64,175),scale=0.03,change_back=True,reverse_rgb=True)
+    scene.add_obj("./ressources/openclip_vector_images/freedo-Cactus.svg",name="cactus",pos=(180,133),scale=0.03,change_back=True)
+    scene.add_obj("./ressources/openclip_vector_images/table-fan_jh.svg",name="fan",pos=(60,60),scale=0.04,change_back=True)
+    scene.add_obj("./ressources/openclip_vector_images/Rfc1394-Blue-Sofa.svg",name="sofa",pos=(167,20),scale=0.1,change_back=True,reverse_rgb=True)
+    scene.add_obj("./ressources/openclip_vector_images/tan-bed.svg",name="bed",pos=(164,174),scale=0.3,change_back=True,reverse_rgb=True)
+    scene.add_obj("./ressources/openclip_vector_images/fridge.png",name="fridge",pos=(22,172),scale=0.1,change_back=False)
+    scene.add_obj("./ressources/openclip_vector_images/cabinet_wood.svg",name="cabinet",pos=(23,24),scale=0.016,change_back=True,reverse_rgb=True)
+    scene.add_obj("./ressources/openclip_vector_images/officeChair.svg",name="chair",pos=(98,175),scale=0.05,change_back=True,reverse_rgb=True)
+    scene.add_obj("./ressources/openclip_vector_images/statue.svg",name="statue",pos=(120,95),scale=0.3,change_back=True,reverse_rgb=True)
+    scene.add_obj("./ressources/openclip_vector_images/file_cabinet.svg",name="file_cabinet",pos=(140,62),scale=0.15,change_back=True,reverse_rgb=True)
+    scene.add_obj("./ressources/openclip_vector_images/bathtub.svg",name="bathtub",pos=(58,103),scale=0.086,change_back=True,reverse_rgb=True)
+    scene.add_obj("./ressources/openclip_vector_images/table.svg",name="table",pos=(123,175),scale=0.2,change_back=True,reverse_rgb=True)
+    scene.add_obj("./ressources/openclip_vector_images/stove.svg",name="stove",pos=(64,175),scale=0.03,change_back=True,reverse_rgb=True)
 
     return scene
 
@@ -270,21 +291,12 @@ def create_env_with_objects():
 
 if __name__=="__main__":
 
-    add_colors=False
-    #add_colors=True
-    if add_colors:
-        x=cv2.imread("maze_19_2.pbm")
-        y=x[10:x.shape[0]-10,10:x.shape[1]-10,:]
-        plt.imshow(y)
-        plt.show()
+    #test_annotate_point=True
+    test_annotate_point=False
 
-        im_tiled=tile_im(y)
-        x_tmp=x.copy()
-        x_tmp[10:x.shape[0]-10, 10:x.shape[1]-10,:]=im_tiled
-        x_tmp[x==0]=0
-        plt.imshow(x_tmp)
-        plt.show()
-    if 1:
+    test_visualize_traj=True
+
+    if test_annotate_point:
         scene=create_env_with_objects()
         fig,_=scene.display(display_bbox=False,hold_on=True)
 
@@ -301,5 +313,15 @@ if __name__=="__main__":
         # Register the event handler function
         cid = fig.canvas.mpl_connect('button_press_event', on_click)
         plt.show()
+
+    if test_visualize_traj:
+
+        scene=create_env_with_objects()
+        traj=np.load("/tmp/path2d_2.npy")
+        fig,_=scene.display(display_bbox=False,hold_on=True,path2d_info=(traj,600,600))
+        plt.show()
+
+
+
 
 
