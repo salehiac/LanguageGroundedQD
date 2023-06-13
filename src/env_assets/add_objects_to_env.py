@@ -16,8 +16,11 @@ _colors = {
     "purple": (128, 0, 128),
     "pink": (255, 192, 203),
     "gray": (128, 128, 128),
-    "brown": (165, 42, 42),
+    "white": (255, 255, 255),
+    "black": (0, 0, 0),
 }
+
+_colors_vec2_text={v:k for k,v in _colors.items()}
 
 
 def tile_im(im_in, num_tiles=3):
@@ -54,11 +57,18 @@ class Bbox:
         a=(y<up and y>down)
         return a and b
 
+
 class Scene:
 
     def __init__(self,layout):
         self.layout=layout
         self.object_dict={}
+        
+        tiled=tile_im(layout[10:layout.shape[0]-10,10:layout.shape[1]-10,:])
+        self.tiling=layout.copy()
+        self.tiling[10:layout.shape[0]-10, 10:layout.shape[1]-10,:]=tiled
+        self.tiling[self.layout==0]=0
+
     def add_obj(self,im_path,name,pos,scale,change_back=False,reverse_rgb=False):
         """
         pos should be (x,y) (for horizontal, vertical)
@@ -111,13 +121,15 @@ class Scene:
         for name,_ in self.object_dict.items():
             layout=self.display_object(name,display=False,layout=layout,display_bbox=display_bbox)
 
-        fig,ax=plt.subplots()
-        ax.imshow(layout)
+        fig,axes=plt.subplots(1,2)
+        #axes[0].imshow((0.7*layout+0.3*self.tiling).astype(np.uint8))
+        axes[0].imshow(layout)
+        axes[1].imshow(self.tiling)
 
         if not hold_on:
             plt.show()
 
-        return fig,ax
+        return fig,axes[0]
 
     def point_near_objects(self,x,y):
 
@@ -149,38 +161,78 @@ class Scene:
                 else:
                     near_objects[f"on {name}"]=dist
 
-
-
         return near_objects
 
+    def get_area_info(self, x,y):
+        """
+        """
+
+        c_in=_colors_vec2_text[tuple(self.tiling[y,x,:])]
+
+        if c_in=="black":
+            raise Exception("your point is on the wall, which should be inaccessible by the agent.")
+        
+        cur_col=self.tiling[y,x,:]
+        def color_change(hh:int,ww:int,direction:str,increment=bool):
+
+            if direction=="horizontal":
+                ww_n=ww
+                while (self.tiling[hh,ww_n]==cur_col).all():
+                    ww_n=ww_n+1 if increment else ww_n-1
+           
+                return _colors_vec2_text[tuple(self.tiling[hh,ww_n])], ww_n
+            
+            if direction=="vertical":
+                hh_n=hh
+                while (self.tiling[hh_n,ww]==cur_col).all():
+                    hh_n=hh_n+1 if increment else hh_n-1
+
+                return _colors_vec2_text[tuple(self.tiling[hh_n,ww])], hh_n
+
+        d_a={}
+        d_a["right"]=color_change(hh=y,ww=x,direction="horizontal",increment=True)
+        d_a["left"]=color_change(hh=y,ww=x,direction="horizontal",increment=False)
+        d_a["down"]=color_change(hh=y,ww=x,direction="vertical",increment=True)
+        d_a["up"]=color_change(hh=y,ww=x,direction="vertical",increment=False)
+        
+
+        return c_in, d_a
+
+
 def read_svg_file(svg_file_path):
-    # Convert SVG to PNG using CairoSVG
+    
     png_image = svg2png(url=svg_file_path)
-    
-    # Create a numpy array from PNG binary data
     nparr = np.frombuffer(png_image, np.uint8)
-    
-    # Decode numpy array into OpenCV image (BGR format)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
     return img
 
+def line_to_pt_dist_2d(m:np.ndarray,a:float,b:float,c:float):
+    """
+    returns dist from 2d point m to 2d line ax+by+c
+    """
+    assert m.ndim==1
+
+    g=np.array([a,b])
+    s=-c/b#intersection with y axis
+    u=m-s
+
+    h=u.transpose().dot(g)/np.linalg.norm(g)
+
+    return h
 
 def change_svg_background(file_name, output_name):
-    # Parse SVG file
+    
     svg_tree = etree.parse(file_name)
     root = svg_tree.getroot()
 
-    # SVG file parameters.
     if 'viewBox' in root.attrib:
-        # Use the viewBox if available
         view_box = root.attrib['viewBox'].split()
         minx = float(view_box[0])
         miny = float(view_box[1])
         width = float(view_box[2])
         height = float(view_box[3])
     elif 'width' in root.attrib and 'height' in root.attrib:
-        # Otherwise, use the width and height attributes if available
         minx = 0
         miny = 0
         width = float(root.attrib['width'])
@@ -188,16 +240,12 @@ def change_svg_background(file_name, output_name):
     else:
         raise ValueError("SVG file must have either a viewBox attribute or both width and height attributes.")
 
-    # Create a new element: black rectangle
-    # Assuming that the SVG namespace is "http://www.w3.org/2000/svg"
     black_rectangle = etree.Element("{http://www.w3.org/2000/svg}rect",
                                     x=str(minx), y=str(miny), width=str(width),
                                     height=str(height), fill='white')
 
-    # Insert the black rectangle at the beginning
     root.insert(0, black_rectangle)
 
-    # Write the output SVG file
     etree.ElementTree(root).write(output_name, pretty_print=True)
 
 def create_env_with_objects():
@@ -247,6 +295,8 @@ if __name__=="__main__":
                 y = int(event.ydata)
                 near_objects=scene.point_near_objects(x, y)
                 print(f"objects near {x},{y}: {near_objects}")
+                c_txt,d_a=scene.get_area_info(x,y)
+                print(f"point is in the {c_txt} area, with neighbouring areas {d_a}")
 
         # Register the event handler function
         cid = fig.canvas.mpl_connect('button_press_event', on_click)
