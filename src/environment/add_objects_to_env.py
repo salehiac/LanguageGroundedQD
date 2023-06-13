@@ -116,7 +116,7 @@ class Scene:
         else:
             return layout
 
-    def display(self,display_bbox,hold_on=False,trajectory:list=[],path2d_info=None):
+    def display(self,display_bbox,hold_on=False,trajectory:list=[],path2d_info=None,save_to=""):
 
         layout=self.layout
         for name,_ in self.object_dict.items():
@@ -132,8 +132,16 @@ class Scene:
         
         axes[1].imshow(self.tiling)
 
+        assert not (hold_on and save_to), "hold_on is incompatible with save_to"
+
+        if save_to:
+            plt.savefig(save_to)
+            plt.close()
+
+        
         if not hold_on:
             plt.show()
+            plt.close()
 
         return fig,axes[0]
 
@@ -156,6 +164,7 @@ class Scene:
             return res_lst
         else:
             summary=res_lst[::step]
+            summary.append(res_lst[-1])
             return summary
 
 
@@ -298,21 +307,21 @@ def change_svg_background(file_name, output_name):
 
     etree.ElementTree(root).write(output_name, pretty_print=True)
 
-def create_env_with_objects():
-    x=cv2.imread("./ressources/maze_19_2.pbm")
+def create_env_with_objects(ressources_path="."):
+    x=cv2.imread(f"{ressources_path}/ressources/maze_19_2.pbm")
     scene=Scene(x)
-    scene.add_obj("./ressources/openclip_vector_images/freedo-Cactus.svg",name="cactus",pos=(180,133),scale=0.03,change_back=True)
-    scene.add_obj("./ressources/openclip_vector_images/table-fan_jh.svg",name="fan",pos=(60,60),scale=0.04,change_back=True)
-    scene.add_obj("./ressources/openclip_vector_images/Rfc1394-Blue-Sofa.svg",name="sofa",pos=(167,20),scale=0.1,change_back=True,reverse_rgb=True)
-    scene.add_obj("./ressources/openclip_vector_images/tan-bed.svg",name="bed",pos=(164,174),scale=0.3,change_back=True,reverse_rgb=True)
-    scene.add_obj("./ressources/openclip_vector_images/fridge.png",name="fridge",pos=(22,172),scale=0.1,change_back=False)
-    scene.add_obj("./ressources/openclip_vector_images/cabinet_wood.svg",name="cabinet",pos=(23,24),scale=0.016,change_back=True,reverse_rgb=True)
-    scene.add_obj("./ressources/openclip_vector_images/officeChair.svg",name="chair",pos=(98,175),scale=0.05,change_back=True,reverse_rgb=True)
-    scene.add_obj("./ressources/openclip_vector_images/statue.svg",name="statue",pos=(120,95),scale=0.3,change_back=True,reverse_rgb=True)
-    scene.add_obj("./ressources/openclip_vector_images/file_cabinet.svg",name="file_cabinet",pos=(140,62),scale=0.15,change_back=True,reverse_rgb=True)
-    scene.add_obj("./ressources/openclip_vector_images/bathtub.svg",name="bathtub",pos=(58,103),scale=0.086,change_back=True,reverse_rgb=True)
-    scene.add_obj("./ressources/openclip_vector_images/table.svg",name="table",pos=(123,175),scale=0.2,change_back=True,reverse_rgb=True)
-    scene.add_obj("./ressources/openclip_vector_images/stove.svg",name="stove",pos=(64,175),scale=0.03,change_back=True,reverse_rgb=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/freedo-Cactus.svg",name="cactus",pos=(180,133),scale=0.03,change_back=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/table-fan_jh.svg",name="fan",pos=(60,60),scale=0.04,change_back=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/Rfc1394-Blue-Sofa.svg",name="sofa",pos=(167,20),scale=0.1,change_back=True,reverse_rgb=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/tan-bed.svg",name="bed",pos=(164,174),scale=0.3,change_back=True,reverse_rgb=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/fridge.png",name="fridge",pos=(22,172),scale=0.1,change_back=False)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/cabinet_wood.svg",name="cabinet",pos=(23,24),scale=0.016,change_back=True,reverse_rgb=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/officeChair.svg",name="chair",pos=(98,175),scale=0.05,change_back=True,reverse_rgb=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/statue.svg",name="statue",pos=(120,95),scale=0.3,change_back=True,reverse_rgb=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/file_cabinet.svg",name="file_cabinet",pos=(140,62),scale=0.15,change_back=True,reverse_rgb=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/bathtub.svg",name="bathtub",pos=(58,103),scale=0.086,change_back=True,reverse_rgb=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/table.svg",name="table",pos=(123,175),scale=0.2,change_back=True,reverse_rgb=True)
+    scene.add_obj(f"{ressources_path}/ressources/openclip_vector_images/stove.svg",name="stove",pos=(64,175),scale=0.03,change_back=True,reverse_rgb=True)
 
     return scene
 
@@ -346,15 +355,17 @@ if __name__=="__main__":
     if test_visualize_traj:
 
         scene=create_env_with_objects()
-        #traj=np.load("/tmp/path2d_2.npy")
-        traj=np.load("/tmp/path2d_0.npy")
-        
-        annotation_lst=scene.annotate_traj(traj, real_h=600, real_w=600,step=200)
-        pretty_print=pprint.PrettyPrinter(indent=4,sort_dicts=False)
-        pretty_print.pprint(annotation_lst)
-        
-        fig,_=scene.display(display_bbox=False,hold_on=True,path2d_info=(traj,600,600))
-        plt.show()
+
+        traj_lst=["/tmp/path2d_2.npy","/tmp/path2d_0.npy","/tmp/path2d_11.npy"]
+        for traj_path in traj_lst:
+            traj=np.load(traj_path)
+            
+            annotation_lst=scene.annotate_traj(traj, real_h=600, real_w=600,step=200)
+            pretty_print=pprint.PrettyPrinter(indent=4,sort_dicts=False)
+            pretty_print.pprint(annotation_lst)
+            
+            fig,_=scene.display(display_bbox=False,hold_on=True,path2d_info=(traj,600,600))
+            plt.show()
 
 
 

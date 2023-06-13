@@ -4,6 +4,7 @@ import pickle
 import sys
 import pdb
 import numpy as np
+import matplotlib.pyplot as plt
 
 from termcolor import colored
 from scoop import futures
@@ -128,9 +129,34 @@ if __name__=="__main__":
             raise Exception("You have specified verify_repeatability_individual without passing the verify_repeatability flag")
 
         if _args.plot_behavior_space_traj:
-            _problem=NavigationEnv.NavigationEnv(bd_type="generic",max_steps=2000, assets=_assets)
-            list(futures.map(lambda x:_problem.visualise_behavior(x[0],hold_on=False,save_to=f"{_args.out_dir}/{x[1]}"),zip(_in_arch, [f"behavior_{i}" for i in range(len(_in_arch))])))
+            
+            #_problem=NavigationEnv.NavigationEnv(bd_type="generic",max_steps=2000, assets=_assets)
+            #list(futures.map(lambda x:_problem.visualise_behavior(x[0],hold_on=False,save_im_to=f"{_args.out_dir}/{x[1]}"),zip(_in_arch, [f"behavior_{i}" for i in range(len(_in_arch))])))
+
+            scene=create_env_with_objects("./environment/")
+            list(futures.map(lambda x:scene.display(display_bbox=False,hold_on=False,path2d_info=(np.stack([y[:2] for y in x[0]._behavior]),600,600),save_to=f"{_args.out_dir}/{x[1]}"),zip(_in_arch, [f"behavior_{i}" for i in range(len(_in_arch))])))
         
         if _args.annotate_archive:
-            pass
+            scene=create_env_with_objects("./environment/")
+
+            _ag_counter=0
+            for ag in _in_arch:
+               
+                print(f"annotating trajectory of agent {_ag_counter}")
+                path2d=np.stack([x[:2] for x in ag._behavior])
+                ag._annotation=scene.annotate_traj(path2d,real_w=600,real_h=600,step=200)#note that we annotate the behavior space trajectory, not tau
+                
+                #fig,_=scene.display(display_bbox=False,hold_on=True,path2d_info=(path2d,600,600))
+                #plt.show()
+
+                _ag_counter+=1
+
+            _annotated_archive_path=f"{_args.out_dir}/annotated_archive.pickle"
+            with open(f"{_annotated_archive_path}","wb") as fl:
+                pickle.dump(_in_arch,fl)
+            print(colored(f"annotated archive was saved to {_annotated_archive_path}","green",attrs=["bold"]))
+
+            
+                
+
 

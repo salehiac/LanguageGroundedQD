@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 
 from NS import GenericBD 
 import MiscUtils
+
 sys.path.append("..")
 
 class NavigationEnv:
@@ -49,7 +50,7 @@ class NavigationEnv:
 
         self.maze_im=cv2.imread(assets["env_im"]) if len(assets) else None
         self.num_saved=0
-        self.ii=0
+        self.num_saved_np_trajs=0
 
     def close(self):
         self.env.close()
@@ -92,17 +93,16 @@ class NavigationEnv:
         
         return fitness, tau, behavior, bd, task_solved
 
-    def visualise_behavior(self, ag,hold_on=False,save_to=""):
+    def visualise_behavior(self, ag,hold_on=False,save_im_to="",save_np_traj=""):
 
         path2d=np.stack([x[:2] for x in ag._behavior])
 
-        np.save(f"/tmp/path2d_{self.ii}",path2d)
-        self.ii+=1
+        if save_np_traj:
+            np.save(f"{save_np_traj}_{self.num_saved_np_trajs}",path2d)
+            self.num_saved_np_trajs+=1
 
         real_w=self.env.map.get_real_w()
         real_h=self.env.map.get_real_h()
-
-        #print("real_w,real_h==",real_w,real_h)
 
         path2d[:,0]=(path2d[:,0]/real_w)*self.maze_im.shape[1]
         path2d[:,1]=(path2d[:,1]/real_h)*self.maze_im.shape[0]
@@ -111,15 +111,14 @@ class NavigationEnv:
         plt.plot(path2d[0,0],path2d[0,1],"ro")
         plt.plot(path2d[:,0],path2d[:,1],"b")
 
-        if save_to:
-            plt.savefig(save_to)
+        if save_im_to:
+            plt.savefig(save_im_to)
             plt.close()
         elif not hold_on:
             plt.show()
             plt.close()
        
-        print("save_to==",save_to)
-        assert not (save_to and hold_on), "can't specify hold on while saving"
+        assert not (save_im_to and hold_on), "can't specify hold on while saving"
 
 
     def visualise_bds(self,archive, population, quitely=True, save_to="",generation_num=-1):
