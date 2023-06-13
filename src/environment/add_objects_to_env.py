@@ -6,6 +6,7 @@ import pdb
 from lxml import etree
 import functools
 import string
+import pprint
 
 _colors = {
     "red": (255, 0, 0),
@@ -136,8 +137,24 @@ class Scene:
 
         return fig,axes[0]
 
-    def visualise_traj(self, path2d:np.ndarray, real_w:float, real_h:float, hold_on:bool=True,ax=None):
+    def annotate_traj(self, path2d_in:np.ndarray, real_w:float, real_h:float):
 
+        path2d=path2d_in.copy()
+        path2d[:,0]=(path2d[:,0]/real_w)*self.layout.shape[1]
+        path2d[:,1]=(path2d[:,1]/real_h)*self.layout.shape[0]
+
+        pts=[pt for pt in path2d]
+        annotations=list(map(lambda pt:(self.point_near_objects(pt[0],pt[1])),pts))
+        annotations_colors=list(map(lambda pt:(self.get_area_info(int(pt[0]),int(pt[1]))),pts))
+
+        res_d={timestep:{"pos":p.tolist(),"semantics":a,"colors":c} for timestep,p,a,c in zip(range(path2d.shape[0]), pts, annotations, annotations_colors)}
+
+        return res_d
+
+
+    def visualise_traj(self, path2d_in:np.ndarray, real_w:float, real_h:float, hold_on:bool=True,ax=None):
+
+        path2d=path2d_in.copy()
         path2d[:,0]=(path2d[:,0]/real_w)*self.layout.shape[1]
         path2d[:,1]=(path2d[:,1]/real_h)*self.layout.shape[0]
 
@@ -153,6 +170,9 @@ class Scene:
             plt.close()
 
     def point_near_objects(self,x,y):
+        """
+        x is horizontal
+        """
 
         thresh=30
         near_objects={}
@@ -317,7 +337,13 @@ if __name__=="__main__":
     if test_visualize_traj:
 
         scene=create_env_with_objects()
-        traj=np.load("/tmp/path2d_2.npy")
+        #traj=np.load("/tmp/path2d_2.npy")
+        traj=np.load("/tmp/path2d_0.npy")
+        
+        annotation_dict=scene.annotate_traj(traj, real_h=600, real_w=600)
+        pretty_print=pprint.PrettyPrinter(indent=4,sort_dicts=False)
+        pretty_print.pprint(annotation_dict)
+        
         fig,_=scene.display(display_bbox=False,hold_on=True,path2d_info=(traj,600,600))
         plt.show()
 
