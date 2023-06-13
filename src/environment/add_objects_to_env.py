@@ -137,7 +137,10 @@ class Scene:
 
         return fig,axes[0]
 
-    def annotate_traj(self, path2d_in:np.ndarray, real_w:float, real_h:float):
+    def annotate_traj(self, path2d_in:np.ndarray, real_w:float, real_h:float,step:int=1):
+        """
+        if step>1, then the trajectory is sampled at step intervals
+        """
 
         path2d=path2d_in.copy()
         path2d[:,0]=(path2d[:,0]/real_w)*self.layout.shape[1]
@@ -147,9 +150,15 @@ class Scene:
         annotations=list(map(lambda pt:(self.point_near_objects(pt[0],pt[1])),pts))
         annotations_colors=list(map(lambda pt:(self.get_area_info(int(pt[0]),int(pt[1]))),pts))
 
-        res_d={timestep:{"pos":p.tolist(),"semantics":a,"colors":c} for timestep,p,a,c in zip(range(path2d.shape[0]), pts, annotations, annotations_colors)}
+        res_lst=[{"timestep":timestep,"pos":p.tolist(),"semantics":a,"colors":c} for timestep,p,a,c in zip(range(path2d.shape[0]), pts, annotations, annotations_colors)]
 
-        return res_d
+        if step<=1:  
+            return res_lst
+        else:
+            summary=res_lst[::step]
+            return summary
+
+
 
 
     def visualise_traj(self, path2d_in:np.ndarray, real_w:float, real_h:float, hold_on:bool=True,ax=None):
@@ -340,9 +349,9 @@ if __name__=="__main__":
         #traj=np.load("/tmp/path2d_2.npy")
         traj=np.load("/tmp/path2d_0.npy")
         
-        annotation_dict=scene.annotate_traj(traj, real_h=600, real_w=600)
+        annotation_lst=scene.annotate_traj(traj, real_h=600, real_w=600,step=200)
         pretty_print=pprint.PrettyPrinter(indent=4,sort_dicts=False)
-        pretty_print.pprint(annotation_dict)
+        pretty_print.pprint(annotation_lst)
         
         fig,_=scene.display(display_bbox=False,hold_on=True,path2d_info=(traj,600,600))
         plt.show()
