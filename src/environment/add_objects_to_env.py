@@ -148,6 +148,8 @@ class Scene:
     def annotate_traj(self, path2d_in:np.ndarray, real_w:float, real_h:float,step:int=1):
         """
         if step>1, then the trajectory is sampled at step intervals
+
+        ATTENTION: the "pos" key in the output dict reverses the vertical axis
         """
 
         path2d=path2d_in.copy()
@@ -158,7 +160,8 @@ class Scene:
         annotations=list(map(lambda pt:(self.point_near_objects(pt[0],pt[1])),pts))
         annotations_colors=list(map(lambda pt:(self.get_area_info(int(pt[0]),int(pt[1]))),pts))
 
-        res_lst=[{"timestep":timestep,"pos":p.tolist(),"semantics":a,"colors":c} for timestep,p,a,c in zip(range(path2d.shape[0]), pts, annotations, annotations_colors)]
+        pts_reverse_y_axis=[np.array([pt[0],200-pt[1]]) for pt in pts]
+        res_lst=[{"timestep":timestep,"pos":p.tolist(),"semantics":a,"colors":c} for timestep,p,a,c in zip(range(path2d.shape[0]), pts_reverse_y_axis, annotations, annotations_colors)]
 
         if step<=1:  
             return res_lst
@@ -329,11 +332,11 @@ def create_env_with_objects(ressources_path="."):
 
 if __name__=="__main__":
 
-    #test_annotate_point=True
-    test_annotate_point=False
+    test_annotate_point=True
+    #test_annotate_point=False
 
-    test_visualize_traj=True
-    #test_visualize_traj=False
+    #test_visualize_traj=True
+    test_visualize_traj=False
 
     if test_annotate_point:
         scene=create_env_with_objects()
