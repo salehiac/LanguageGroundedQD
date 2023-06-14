@@ -229,7 +229,7 @@ class NoveltySearch:
 
 
 
-    def __call__(self, iters, stop_on_reaching_task=True, reinit=False):
+    def __call__(self, iters, stop_on_reaching_task=True, reinit=False, save_frequency=1):
         
         print(f"Starting NS with pop_sz={len(self._initial_pop)}, offspring_sz={self.n_offspring}", flush=True)
 
@@ -273,7 +273,7 @@ class NoveltySearch:
            
             if self.archive is not None:
                 self.archive.update(parents, offsprings, thresh=self.problem.dist_thresh, boundaries=[0,600],knn_k=15)
-                if self.save_archive_to_file:
+                if self.save_archive_to_file and it%save_frequency==0:
                     self.archive.dump(self.log_dir_path+f"/archive_{it}")
             
             self.visualise_bds(parents + [x for x in offsprings if x._solved_task],generation_num=it)

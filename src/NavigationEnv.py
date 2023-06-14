@@ -23,7 +23,7 @@ import MiscUtils
 sys.path.append("..")
 
 class NavigationEnv:
-    def __init__(self, bd_type="generic", max_steps=2000, display=False, assets={}):
+    def __init__(self, bd_type="generic", max_steps=400, display=False, assets={}):
         
         rand_str=MiscUtils.rand_string(alpha=True, numerical=False) + "-v1"
         gym_fastsim.register(id=rand_str,

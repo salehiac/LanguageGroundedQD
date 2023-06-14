@@ -23,6 +23,7 @@ class Agent(ABC):
         self._tau=None#a trajectory {(o_i, a_i)}_i
         self._behavior=None#behavior is the complete traj in behavior space, which is mapped to some _behavior_descr
         self._behavior_descr=None
+        self._annotation=None
         self._nov=None
         self._idx=idx
 

@@ -28,7 +28,6 @@ def generate_paper_dataset(logs_root="/tmp/"):
     """
 
     problem = NavigationEnv.NavigationEnv(bd_type="generic",
-                                          max_steps=2000,
                                           assets=_assets)
 
     nov_estimator = NS.ArchiveBasedNoveltyEstimator(k=15)
@@ -86,7 +85,7 @@ def generate_paper_dataset(logs_root="/tmp/"):
     nov_estimator.log_dir = ns.log_dir_path
     ns.save_archive_to_file = True
 
-    _, _ = ns(iters=1000, stop_on_reaching_task=False)
+    _, _ = ns(iters=1000, stop_on_reaching_task=False,save_frequency=10)
 
 
 def verify_repeatability_individual(ag):
@@ -95,7 +94,6 @@ def verify_repeatability_individual(ag):
     """
 
     problem = NavigationEnv.NavigationEnv(bd_type="generic",
-                                          max_steps=2000,
                                           assets=_assets)
 
     fitness, tau, behavior, bd, task_solved = problem(ag)
@@ -204,9 +202,6 @@ if __name__ == "__main__":
             )
 
         if _args.plot_behavior_space_traj:
-
-            #_problem=NavigationEnv.NavigationEnv(bd_type="generic",max_steps=2000, assets=_assets)
-            #list(futures.map(lambda x:_problem.visualise_behavior(x[0],hold_on=False,save_im_to=f"{_args.out_dir}/{x[1]}"),zip(_in_arch, [f"behavior_{i}" for i in range(len(_in_arch))])))
 
             scene = create_env_with_objects("./environment/")
             list(
