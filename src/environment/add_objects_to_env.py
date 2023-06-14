@@ -333,6 +333,7 @@ if __name__=="__main__":
     test_annotate_point=False
 
     test_visualize_traj=True
+    #test_visualize_traj=False
 
     if test_annotate_point:
         scene=create_env_with_objects()

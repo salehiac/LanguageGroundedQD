@@ -98,7 +98,7 @@ class NavigationEnv:
 
     def visualise_behavior(self, ag,hold_on=False,save_im_to="",save_np_traj=""):
 
-        path2d=np.stack([x[:2] for x in ag._behavior])
+        path2d=copy.deepcopy(ag._behavior)
 
         if save_np_traj:
             np.save(f"{save_np_traj}_{self.num_saved_np_trajs}",path2d)

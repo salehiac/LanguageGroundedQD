@@ -102,10 +102,19 @@ def verify_repeatability_individual(ag):
         "_fitness", "_tau", "_behavior", "_behavior_descr", "_solved_task"
     ]
 
+    def check_equality(xx,yy):
+        if isinstance(xx,np.ndarray):
+            return (xx==yy).all()
+        if isinstance(xx,float) or isinstance(xx,bool):
+            return xx==yy
+        if isinstance(xx,dict):
+            aa=(xx["obs"]==yy["obs"]).all()
+            bb=(xx["action"]==yy["action"]).all()
+            return aa and bb
+    
     comp = list(
         map(
-            lambda x: x[0] == x[1]
-            if not isinstance(x[0], np.ndarray) else (x[0] == x[1]).all(),
+            lambda z: check_equality(z[0],z[1]),
             zip([fitness, tau, behavior, bd, task_solved],
                 [getattr(ag, attrs[i]) for i in range(5)])))
 
@@ -154,7 +163,7 @@ if __name__ == "__main__":
     )
 
     _parser.add_argument(
-        '--export_annotation',
+        '--export_annotations',
         action='store_true',
         help=
         "Will throw an exception if the input archive has not already been annotated. Exports annotation data to --out_dir"
@@ -208,17 +217,15 @@ if __name__ == "__main__":
                 futures.map(
                     lambda x: scene.display(display_bbox=False,
                                             hold_on=False,
-                                            path2d_info=(np.stack([
-                                                y[:2] for y in x[0]._behavior
-                                            ]), 600, 600),
+                                            path2d_info=(x[0]._behavior, 600, 600),
                                             save_to=f"{_args.out_dir}/{x[1]}"),
                     zip(_in_arch,
                         [f"behavior_{i}" for i in range(len(_in_arch))])))
 
-        if _args.export_annotation:
+        if _args.export_annotations:
 
             if not hasattr(_in_arch[0],"_annotation"):
-                raise Exception("--export_annotation can only be used with an annotated archive. Did you mean to pass --annotate_archive?")
+                raise Exception("--export_annotations can only be used with an annotated archive. Did you mean to pass --annotate_archive?")
 
             for ag_i in range(len(_in_arch)):
                 fn=f"{_args.out_dir}/annotation_{ag_i}.json"
@@ -232,10 +239,9 @@ if __name__ == "__main__":
             _ag_counter = 0
             for ag in _in_arch:
 
-                print(f"annotating trajectory of agent {_ag_counter}")
-                path2d = np.stack([x[:2] for x in ag._behavior])
+                print(f"annotating trajectory of agent {_ag_counter}/{len(_in_arch)}")
                 ag._annotation = scene.annotate_traj(
-                    path2d, real_w=600, real_h=600, step=200
+                    ag._behavior, real_w=600, real_h=600, step=40
                 )  #note that we annotate the behavior space trajectory, not tau
 
                 #fig,_=scene.display(display_bbox=False,hold_on=True,path2d_info=(path2d,600,600))
