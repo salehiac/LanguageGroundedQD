@@ -90,8 +90,11 @@ class NavigationEnv:
         bd=None
         if isinstance(self.bd_extractor, GenericBD):
             bd=self.bd_extractor.extract_behavior(np.array(behavior).reshape(len(behavior), len(behavior[0]))) 
+
+        tau_np={"obs":np.stack([x["obs"] for x in tau]), "action":np.stack([x["action"] for x in tau])}
+        behavior2d_np=np.stack([x[:2] for x in behavior])
         
-        return fitness, tau, behavior, bd, task_solved
+        return fitness, tau_np, behavior2d_np, bd, task_solved
 
     def visualise_behavior(self, ag,hold_on=False,save_im_to="",save_np_traj=""):
 
