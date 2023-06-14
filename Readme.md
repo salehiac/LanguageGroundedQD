@@ -16,7 +16,9 @@ bibinfo goes here
 
 ### Dataset annotation dependencies
 
-OpenAI API key and procedure, etc.
+clone openai_api_quick_start, copy the script `get_trajectory_description.py` to the repo containing the virtualenv and add your key at the top of the script in the placeholder, launch it
+
+
 
 ## Using the pretrained models
 
