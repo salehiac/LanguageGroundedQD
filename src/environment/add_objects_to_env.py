@@ -181,9 +181,11 @@ class Scene:
 
         if ax is not None:
             ax.plot(path2d[0,0],path2d[0,1],"ro")
+            ax.plot(path2d[-1,0],path2d[-1,1],"ko")
             ax.plot(path2d[:,0],path2d[:,1],"b")
         else:
             plt.plot(path2d[0,0],path2d[0,1],"ro")
+            plt.plot(path2d[-1,0],path2d[-1,1],"ko")
             plt.plot(path2d[:,0],path2d[:,1],"b")
 
         if not hold_on:

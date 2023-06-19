@@ -18,12 +18,14 @@ class Agent(ABC):
     def get_genotype_len(self):
         pass
     
+    
     def __init__(self, idx):
         self._fitness=None
         self._tau=None#a trajectory {(o_i, a_i)}_i
         self._behavior=None#behavior is the complete traj in behavior space, which is mapped to some _behavior_descr
         self._behavior_descr=None
         self._annotation=None
+        self._llm_descr=None
         self._nov=None
         self._idx=idx
 
@@ -57,25 +59,6 @@ class Agent(ABC):
         self._useful_evolvability=0
         self._mean_adaptation_speed=float("inf")
         self._adaptation_speed_lst=[]
-
-
-
-class Dummy(torch.nn.Module, Agent):
-    def __init__(self, idx, in_d, out_d, out_type="list"):
-        torch.nn.Module.__init__(self)
-        Agent.__init__(self, idx)
-        self.in_d=in_d
-        self.out_d=out_d
-
-    def forward(self, x):
-        return torch.randn(1,self.out_d)[0,:].tolist()
-
-    def get_flattened_weights(self):
-        pass
-    def set_flattened_weights(self, w):
-        pass
-    def get_genotype_len(self):
-        pass
 
 
 _non_lin_dict={"tanh":torch.tanh, "relu": torch.relu, "sigmoid": torch.sigmoid}

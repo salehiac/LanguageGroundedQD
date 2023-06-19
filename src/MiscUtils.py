@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import numpy as np
 from functools import reduce
 import string
+import re
 
 sys.path.append("../")
 
@@ -63,4 +64,24 @@ class colors:
     green=(0,255,0)
     blue=(0,0,255)
     yellow=(255,255,51)
+
+def get_trailing_number(s):
+    m = re.search(r'\d+$', s)
+    return int(m.group()) if m else None
+
+def add_newlines(string, chars_per_line=60):
+    words = string.split(' ')
+    lines = []
+    line = ''
+    for word in words:
+        if len(line + ' ' + word) <= chars_per_line:
+            line += ' ' + word
+        else:
+            lines.append(line)
+            line = word
+    lines.append(line)
+    return '\n'.join(lines)
+
+
+
 

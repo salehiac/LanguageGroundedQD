@@ -6,6 +6,7 @@ import pdb
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+import os
 
 from termcolor import colored
 from scoop import futures
@@ -168,6 +169,18 @@ if __name__ == "__main__":
         help=
         "Will throw an exception if the input archive has not already been annotated. Exports annotation data to --out_dir"
     )
+    _parser.add_argument(
+            '--add_llm_descriptions',
+            type=str,
+            default="",
+            help="path to a directory with files <filename>_<traj_idx>.json, each containing a dictionary with key 'descr', containing an llm generated description for traj <traj_id>. This argument will add that description to the corresponding policies, and save the archive to --out_dir.")
+
+
+    _parser.add_argument(
+            '--visualize_llm_description_and_behavior',
+            type=int,
+            default=-1,
+            help="index of individual for whose behavior space trajectory we want to visualize alongside the llm generated description")
 
     #output arg
     _parser.add_argument('--out_dir',
@@ -231,7 +244,24 @@ if __name__ == "__main__":
                 fn=f"{_args.out_dir}/annotation_{ag_i}.json"
                 with open(fn,"w") as fl:
                     json.dump(_in_arch[ag_i]._annotation,fl)
-        
+
+        if _args.add_llm_descriptions:
+
+            in_fns={MiscUtils.get_trailing_number(x[:-5]):_args.add_llm_descriptions+"/"+x for x in os.listdir(_args.add_llm_descriptions)}
+            for ag_i in range(len(_in_arch)):
+                if ag_i in in_fns:
+                    print(colored(f"adding description to agent {ag_i}.","green",attrs=["bold"]))
+                    with open(in_fns[ag_i],"r") as fl:
+                        descr_string=json.load(fl)["descr"]
+                    _in_arch[ag_i]._llm_descr=descr_string
+                else:
+                    pass
+                    #print(colored(f"no description for agent {ag_i}, skipping it.","red",attrs=["bold"]))
+
+            out_fn=f"{_args.out_dir}/described_archive.pickle"
+            print(f"saving to {out_fn}")
+            with open(out_fn,"wb") as fl:
+                pickle.dump(_in_arch,fl)
         
         if _args.annotate_archive:
             scene = create_env_with_objects("./environment/")
@@ -257,3 +287,21 @@ if __name__ == "__main__":
                     f"annotated archive was saved to {_annotated_archive_path}",
                     "green",
                     attrs=["bold"]))
+
+        if _args.visualize_llm_description_and_behavior!=-1:
+
+            _idx=_args.visualize_llm_description_and_behavior
+            scene = create_env_with_objects("./environment/")
+            
+            if not hasattr(_in_arch[_idx],"_llm_descr") or _in_arch[_idx]._llm_descr is None :
+                raise Exception(colored("Your archive has not been described. See the input options for annotation archives and adding LLM descriptions","red",attrs=["bold"]))
+
+            fig,_=scene.display(display_bbox=False,
+                    hold_on=True,
+                    path2d_info=(_in_arch[_idx]._behavior, 600, 600))
+
+            fig.suptitle(MiscUtils.add_newlines(_in_arch[_idx]._llm_descr))
+            plt.tight_layout()
+            plt.show()
+            
+
