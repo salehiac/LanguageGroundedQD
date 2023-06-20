@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 import os
+import copy
 
 from termcolor import colored
 from scoop import futures
@@ -121,6 +122,16 @@ def verify_repeatability_individual(ag):
 
     return sum(comp) == len(comp)
 
+def find_duplicates(arch):
+
+    dupes=[]
+    for ii in range(len(arch)):
+        for jj in range(ii+1,len(arch)):
+
+            if arch[ii]==arch[jj]:
+                dupes.append((ii,jj))
+
+    return dupes
 
 if __name__ == "__main__":
 
@@ -181,6 +192,20 @@ if __name__ == "__main__":
             type=int,
             default=-1,
             help="index of individual for whose behavior space trajectory we want to visualize alongside the llm generated description")
+
+    _parser.add_argument(
+            '--archive_info',
+            action='store_true',
+            help="prints info about --input_archive"
+            )
+
+    _parser.add_argument(
+            '--fix_duplicates',
+            action='store_true',
+            help="Some policies can appear multiple times in the archive. We separate them as a form of data augmentation: this pairs the same policy with different but similar texts"
+            )
+
+
 
     #output arg
     _parser.add_argument('--out_dir',
@@ -258,6 +283,11 @@ if __name__ == "__main__":
                     pass
                     #print(colored(f"no description for agent {ag_i}, skipping it.","red",attrs=["bold"]))
 
+            mm=[True if (hasattr(_in_arch[ii],"_llm_descr") and _in_arch[ii]._llm_descr is not None) else False for ii in range(len(_in_arch))] 
+            first_non_annotated=mm.index(False)
+            assert sum(mm[:first_non_annotated])==len(mm[:first_non_annotated]), "the llm descr process is incremental w.r.t policy indexes"
+            assert sum(mm[first_non_annotated:])==0, "the llm descr process is incremental w.r.t policy indexes"
+
             out_fn=f"{_args.out_dir}/described_archive.pickle"
             print(f"saving to {out_fn}")
             with open(out_fn,"wb") as fl:
@@ -294,7 +324,7 @@ if __name__ == "__main__":
             scene = create_env_with_objects("./environment/")
             
             if not hasattr(_in_arch[_idx],"_llm_descr") or _in_arch[_idx]._llm_descr is None :
-                raise Exception(colored("Your archive has not been described. See the input options for annotation archives and adding LLM descriptions","red",attrs=["bold"]))
+                raise Exception(colored(f"Element {_idx} has not been described. See the input options for annotation archives and adding LLM descriptions","red",attrs=["bold"]))
 
             fig,_=scene.display(display_bbox=False,
                     hold_on=True,
@@ -303,5 +333,40 @@ if __name__ == "__main__":
             fig.suptitle(MiscUtils.add_newlines(_in_arch[_idx]._llm_descr))
             plt.tight_layout()
             plt.show()
-            
+
+        if _args.archive_info:
+
+           import pprint
+           _sz=len(_in_arch)
+           _dd={}
+           _dd["size"]=_sz
+           _dd["num annotated"]=functools.reduce(lambda acc, x: acc+1 if (hasattr(x,"_annotation") and x._annotation is not None) else acc, _in_arch,0)
+           _dd["num described"]=functools.reduce(lambda acc, x: acc+1 if (hasattr(x,"_llm_descr") and x._llm_descr is not None) else acc, _in_arch,0)
+
+           mm=[True if (hasattr(x,"_llm_descr") and x._llm_descr is not None) else False for x in _in_arch] 
+           first_non_annotated=mm.index(False)
+           assert sum(mm[:first_non_annotated])==len(mm[:first_non_annotated]), "the llm descr process is incremental w.r.t policy indexes"
+           assert sum(mm[first_non_annotated:])==0, "the llm descr process is incremental w.r.t policy indexes"
+
+           _dd["described from/to"]=f"[0,{first_non_annotated})"
+           _dd["episode length"]=_in_arch[0]._tau["action"].shape[0]
+           _dd["cmd dims"]=_in_arch[0]._tau["action"].shape[1]
+           _dd["obs dims"]=_in_arch[0]._tau["obs"].shape[1]
+
+
+           _pp = pprint.PrettyPrinter(indent=4,sort_dicts=False)
+           _pp.pprint(_dd)
+
+        if _args.fix_duplicates:
+
+            #_dupes=find_duplicates(_in_arch)
+            #print(_dupes)
+
+            _in_arch_cp=[copy.deepcopy(x) for x in _in_arch]
+
+            with open(f"{_args.out_dir}/archive_fixed_duplicates.pkl","wb") as fl:
+                pickle.dump(_in_arch_cp,fl)
+
+
+
 
