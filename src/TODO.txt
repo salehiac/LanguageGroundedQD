@@ -1,14 +1,31 @@
 
 1̶.̶ ̶A̶d̶d̶ ̶a̶ ̶s̶c̶r̶i̶p̶t̶ ̶t̶h̶a̶t̶ ̶l̶o̶a̶d̶s̶ ̶a̶n̶ ̶a̶r̶c̶h̶i̶v̶e̶,̶ ̶p̶l̶a̶y̶s̶ ̶i̶t̶,̶ ̶a̶n̶d̶ ̶v̶e̶r̶i̶f̶i̶e̶s̶ ̶t̶h̶a̶t̶ ̶t̶h̶e̶ ̶f̶i̶n̶a̶l̶ ̶B̶D̶ ̶i̶s̶ ̶t̶h̶e̶ ̶s̶a̶m̶e̶ ̶t̶h̶a̶t̶ ̶i̶s̶ ̶i̶n̶ ̶t̶h̶e̶ ̶a̶r̶c̶h̶i̶v̶e̶ ̶f̶o̶r̶ ̶e̶a̶c̶h̶ ̶p̶o̶l̶i̶c̶y̶
 2̶.̶ ̶A̶d̶d̶ ̶a̶ ̶s̶c̶r̶i̶p̶t̶ ̶t̶h̶a̶t̶ ̶s̶a̶v̶e̶s̶ ̶e̶n̶t̶i̶r̶e̶ ̶t̶r̶a̶j̶e̶c̶t̶o̶i̶r̶s̶ ̶(̶a̶c̶t̶i̶o̶n̶,̶ ̶o̶b̶s̶)̶ ̶t̶o̶ ̶t̶h̶e̶ ̶a̶r̶c̶h̶i̶v̶e̶ 
-3. Add a script that load that archive and then annotates it with semantic info (you might need to do a bit of manual defining here)
-   3.1 I've added the new environment with bounding boxes and vector images (under creative commons) + added the color tiling
-       - I need to add an image tiling to the Scene and check on which tile the points fall
-       - NavigationEnv needs to have one of those Scence objects, and use it to annotate trajectories.
-       - I think that the annotation here needs to be coarser, i.e. it shouldn't be made on all timesteps. Maybe just keep the timesteps at which we reach a point with new semantic info, for
-         example: (timestep_15: "north of fridge", timestep_21: "", timestep_32: "south_west_of_bathtub", timestep_33: "west of bathtub", ....)
-       - I think you can map trajectories to manual descriptions: e.g. you can say the traj goes up from the initial point x if it never goes down there, but yeah, that might be ambiguous...
-4. Add the lllm prompting part to generate descriptions for each of the trajectories
-5. Verify dataset
+3.̶ ̶A̶d̶d̶ ̶a̶ ̶s̶c̶r̶i̶p̶t̶ ̶t̶h̶a̶t̶ ̶l̶o̶a̶d̶ ̶t̶h̶a̶t̶ ̶a̶r̶c̶h̶i̶v̶e̶ ̶a̶n̶d̶ ̶t̶h̶e̶n̶ ̶a̶n̶n̶o̶t̶a̶t̶e̶s̶ ̶i̶t̶ ̶w̶i̶t̶h̶ ̶s̶e̶m̶a̶n̶t̶i̶c̶ ̶i̶n̶f̶o̶ ̶(̶y̶o̶u̶ ̶m̶i̶g̶h̶t̶ ̶n̶e̶e̶d̶ ̶t̶o̶ ̶d̶o̶ ̶a̶ ̶b̶i̶t̶ ̶o̶f̶ ̶m̶a̶n̶u̶a̶l̶ ̶d̶e̶f̶i̶n̶i̶n̶g̶ ̶h̶e̶r̶e̶)
+   3̶.̶1̶ ̶I̶'̶v̶e̶ ̶a̶d̶d̶e̶d̶ ̶t̶h̶e̶ ̶n̶e̶w̶ ̶e̶n̶v̶i̶r̶o̶n̶m̶e̶n̶t̶ ̶w̶i̶t̶h̶ ̶b̶o̶u̶n̶d̶i̶n̶g̶ ̶b̶o̶x̶e̶s̶ ̶a̶n̶d̶ ̶v̶e̶c̶t̶o̶r̶ ̶i̶m̶a̶g̶e̶s̶ ̶(̶u̶n̶d̶e̶r̶ ̶c̶r̶e̶a̶t̶i̶v̶e̶ ̶c̶o̶m̶m̶o̶n̶s̶)̶ ̶+̶ ̶a̶d̶d̶e̶d̶ ̶t̶h̶e̶ ̶c̶o̶l̶o̶r̶ ̶t̶i̶l̶i̶n̶g̶
+       -̶ ̶I̶ ̶n̶e̶e̶d̶ ̶t̶o̶ ̶a̶d̶d̶ ̶a̶n̶ ̶i̶m̶a̶g̶e̶ ̶t̶i̶l̶i̶n̶g̶ ̶t̶o̶ ̶t̶h̶e̶ ̶S̶c̶e̶n̶e̶ ̶a̶n̶d̶ ̶c̶h̶e̶c̶k̶ ̶o̶n̶ ̶w̶h̶i̶c̶h̶ ̶t̶i̶l̶e̶ ̶t̶h̶e̶ ̶p̶o̶i̶n̶t̶s̶ ̶f̶a̶l̶l̶
+       -̶ ̶N̶a̶v̶i̶g̶a̶t̶i̶o̶n̶E̶n̶v̶ ̶n̶e̶e̶d̶s̶ ̶t̶o̶ ̶h̶a̶v̶e̶ ̶o̶n̶e̶ ̶o̶f̶ ̶t̶h̶o̶s̶e̶ ̶S̶c̶e̶n̶c̶e̶ ̶o̶b̶j̶e̶c̶t̶s̶,̶ ̶a̶n̶d̶ ̶u̶s̶e̶ ̶i̶t̶ ̶t̶o̶ ̶a̶n̶n̶o̶t̶a̶t̶e̶ ̶t̶r̶a̶j̶e̶c̶t̶o̶r̶i̶e̶s̶.̶
+       -̶ ̶I̶ ̶t̶h̶i̶n̶k̶ ̶t̶h̶a̶t̶ ̶t̶h̶e̶ ̶a̶n̶n̶o̶t̶a̶t̶i̶o̶n̶ ̶h̶e̶r̶e̶ ̶n̶e̶e̶d̶s̶ ̶t̶o̶ ̶b̶e̶ ̶c̶o̶a̶r̶s̶e̶r̶,̶ ̶i̶.̶e̶.̶ ̶i̶t̶ ̶s̶h̶o̶u̶l̶d̶n̶'̶t̶ ̶b̶e̶ ̶m̶a̶d̶e̶ ̶o̶n̶ ̶a̶l̶l̶ ̶t̶i̶m̶e̶s̶t̶e̶p̶s̶.̶ ̶M̶a̶y̶b̶e̶ ̶j̶u̶s̶t̶ ̶k̶e̶e̶p̶ ̶t̶h̶e̶ ̶t̶i̶m̶e̶s̶t̶e̶p̶s̶ ̶a̶t̶ ̶w̶h̶i̶c̶h̶ ̶w̶e̶ ̶r̶e̶a̶c̶h̶ ̶a̶ ̶p̶o̶i̶n̶t̶ ̶w̶i̶t̶h̶ ̶n̶e̶w̶ ̶s̶e̶m̶a̶n̶t̶i̶c̶ ̶i̶n̶f̶o̶,̶ ̶f̶o̶r̶
+         e̶x̶a̶m̶p̶l̶e̶:̶ ̶(̶t̶i̶m̶e̶s̶t̶e̶p̶_̶1̶5̶:̶ ̶"̶n̶o̶r̶t̶h̶ ̶o̶f̶ ̶f̶r̶i̶d̶g̶e̶"̶,̶ ̶t̶i̶m̶e̶s̶t̶e̶p̶_̶2̶1̶:̶ ̶"̶"̶,̶ ̶t̶i̶m̶e̶s̶t̶e̶p̶_̶3̶2̶:̶ ̶"̶s̶o̶u̶t̶h̶_̶w̶e̶s̶t̶_̶o̶f̶_̶b̶a̶t̶h̶t̶u̶b̶"̶,̶ ̶t̶i̶m̶e̶s̶t̶e̶p̶_̶3̶3̶:̶ ̶"̶w̶e̶s̶t̶ ̶o̶f̶ ̶b̶a̶t̶h̶t̶u̶b̶"̶,̶ ̶.̶.̶.̶.̶)̶
+       -̶ ̶I̶ ̶t̶h̶i̶n̶k̶ ̶y̶o̶u̶ ̶c̶a̶n̶ ̶m̶a̶p̶ ̶t̶r̶a̶j̶e̶c̶t̶o̶r̶i̶e̶s̶ ̶t̶o̶ ̶m̶a̶n̶u̶a̶l̶ ̶d̶e̶s̶c̶r̶i̶p̶t̶i̶o̶n̶s̶:̶ ̶e̶.̶g̶.̶ ̶y̶o̶u̶ ̶c̶a̶n̶ ̶s̶a̶y̶ ̶t̶h̶e̶ ̶t̶r̶a̶j̶ ̶g̶o̶e̶s̶ ̶u̶p̶ ̶f̶r̶o̶m̶ ̶t̶h̶e̶ ̶i̶n̶i̶t̶i̶a̶l̶ ̶p̶o̶i̶n̶t̶ ̶x̶ ̶i̶f̶ ̶i̶t̶ ̶n̶e̶v̶e̶r̶ ̶g̶o̶e̶s̶ ̶d̶o̶w̶n̶ ̶t̶h̶e̶r̶e̶,̶ ̶b̶u̶t̶ ̶y̶e̶a̶h̶,̶ ̶t̶h̶a̶t̶ ̶m̶i̶g̶h̶t̶ ̶b̶e̶ ̶a̶m̶b̶i̶g̶u̶o̶u̶s̶.̶.̶.̶
+4̶.̶ ̶A̶d̶d̶ ̶t̶h̶e̶ ̶l̶l̶l̶m̶ ̶p̶r̶o̶m̶p̶t̶i̶n̶g̶ ̶p̶a̶r̶t̶ ̶t̶o̶ ̶g̶e̶n̶e̶r̶a̶t̶e̶ ̶d̶e̶s̶c̶r̶i̶p̶t̶i̶o̶n̶s̶ ̶f̶o̶r̶ ̶e̶a̶c̶h̶ ̶o̶f̶ ̶t̶h̶e̶ ̶t̶r̶a̶j̶e̶c̶t̶o̶r̶i̶e̶s̶
+5̶.̶ ̶V̶e̶r̶i̶f̶y̶ ̶d̶a̶t̶a̶s̶e̶t̶
 
-Now... The transformer part 
+- Whenever you get the opportunity to describe the complete archive => upload it somewhere (create a git release? Or maybe put it directly on huggingface?)
+
+- Add the code structure for getting text embeddings, make it model agnostic and easily configurable
+- Read the code of decision transformer 
+- Read the code of nanoGPT
+- Read the paper that conditions decision transformer on language (Pretraining for Language-Conditioned Imitation with Transformers)
+- decide on an initial network architecture, try to deduce network size by comparing the problems used in decision transformer with yours. Comparisons should be made in terms of 
+  - episode length
+  - action/obs dimensions
+  - diversity of possible behaviors
+  - The overall complexity of the dynamics
+  - The size of the natural language embeddings
+- Make sure training works on a small dataset (no obvious bugs)
+- Launch training on server!
+
+If training goes well, start writing tiny paper
+
+  
