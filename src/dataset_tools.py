@@ -284,9 +284,10 @@ if __name__ == "__main__":
                     #print(colored(f"no description for agent {ag_i}, skipping it.","red",attrs=["bold"]))
 
             mm=[True if (hasattr(_in_arch[ii],"_llm_descr") and _in_arch[ii]._llm_descr is not None) else False for ii in range(len(_in_arch))] 
-            first_non_annotated=mm.index(False)
-            assert sum(mm[:first_non_annotated])==len(mm[:first_non_annotated]), "the llm descr process is incremental w.r.t policy indexes"
-            assert sum(mm[first_non_annotated:])==0, "the llm descr process is incremental w.r.t policy indexes"
+            if False in mm:
+                first_non_annotated=mm.index(False)
+                assert sum(mm[:first_non_annotated])==len(mm[:first_non_annotated]), "the llm descr process is incremental w.r.t policy indexes"
+                assert sum(mm[first_non_annotated:])==0, "the llm descr process is incremental w.r.t policy indexes"
 
             out_fn=f"{_args.out_dir}/described_archive.pickle"
             print(f"saving to {out_fn}")
@@ -344,11 +345,14 @@ if __name__ == "__main__":
            _dd["num described"]=functools.reduce(lambda acc, x: acc+1 if (hasattr(x,"_llm_descr") and x._llm_descr is not None) else acc, _in_arch,0)
 
            mm=[True if (hasattr(x,"_llm_descr") and x._llm_descr is not None) else False for x in _in_arch] 
-           first_non_annotated=mm.index(False)
-           assert sum(mm[:first_non_annotated])==len(mm[:first_non_annotated]), "the llm descr process is incremental w.r.t policy indexes"
-           assert sum(mm[first_non_annotated:])==0, "the llm descr process is incremental w.r.t policy indexes"
+           if False in mm:
+               first_non_annotated=mm.index(False)
+               assert sum(mm[:first_non_annotated])==len(mm[:first_non_annotated]), "the llm descr process is incremental w.r.t policy indexes"
+               assert sum(mm[first_non_annotated:])==0, "the llm descr process is incremental w.r.t policy indexes"
+           else:
+               first_non_annotated=None
 
-           _dd["described from/to"]=f"[0,{first_non_annotated})"
+           _dd["described from/to"]=f"[0,{first_non_annotated})" if first_non_annotated is not None else "fully described"
            _dd["episode length"]=_in_arch[0]._tau["action"].shape[0]
            _dd["cmd dims"]=_in_arch[0]._tau["action"].shape[1]
            _dd["obs dims"]=_in_arch[0]._tau["obs"].shape[1]

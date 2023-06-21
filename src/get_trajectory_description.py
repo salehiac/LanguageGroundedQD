@@ -143,7 +143,7 @@ if __name__=="__main__":
 
     if test_read_annotations:
 
-        _outdir="/home/achkan/Desktop/tmp_desktop/description_out/"
+        _outdir=sys.argv[2]
         ###note: - up to 2890 (inclusive) have been generated with few-shot prompting (generate_description_few_shot function) and without rounding the pos
         ###      - from 2891 to 3000 have been generated with zero-shot (generate_description) and with rounding (so the price should be lower)
         ###        Interestingly, those examples result in narrative descriptions, while the previous one became instructinal (well, the example was instructional)

@@ -79,6 +79,7 @@ def main_test(cfg):
 
         batch=np.random.choice(repertoire,size=batch_sz, replace=False)
         batch_text=[x._llm_descr for x in batch]
+
         emb, tokens=lct.embed_text(batch_text,cfg["model_cfg"]["text_embedding"]["features_type"])
  
         _pp.pprint(batch_text)
@@ -86,11 +87,6 @@ def main_test(cfg):
         print("embedding shape==",emb.shape)
 
         return emb
-
-
-        
-
-
 
 
 if __name__=="__main__":
@@ -107,4 +103,3 @@ if __name__=="__main__":
         _out_train=main_train(_config)
     if _config["test_model"]: 
         _out_test=main_test(_config)
-        
