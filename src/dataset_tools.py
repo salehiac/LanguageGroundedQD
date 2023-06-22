@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 import json
 import os
 import copy
+from wordcloud import WordCloud
+from collections import Counter 
+
 
 from termcolor import colored
 from scoop import futures
@@ -357,9 +360,29 @@ if __name__ == "__main__":
            _dd["cmd dims"]=_in_arch[0]._tau["action"].shape[1]
            _dd["obs dims"]=_in_arch[0]._tau["obs"].shape[1]
 
+           word_lst=[]
+           for _ag in _in_arch:
+               word_lst+=_ag._llm_descr.split()
+           word_lst_unique=list(set(word_lst))
 
+           _dd["num unique words"]=len(word_lst_unique)
+
+           cnt=Counter(word_lst)
+           zz=sorted([(k,v) for k,v in cnt.items()],key=lambda x: x[1],reverse=True) 
+           _dd["top three frequent words"]=zz[:3]
+           
            _pp = pprint.PrettyPrinter(indent=4,sort_dicts=False)
            _pp.pprint(_dd)
+
+
+           import warnings
+           warnings.filterwarnings("ignore")
+           word_dict = dict(zz)
+           wordcloud = WordCloud(width = 1000, height = 500).generate_from_frequencies(word_dict)
+           wc_path='/tmp/wordcloud.png'
+           wordcloud.to_file(wc_path)
+           print(colored(f"word cloud saved to {wc_path}","cyan",attrs=["bold"]))
+
 
         if _args.fix_duplicates:
 
