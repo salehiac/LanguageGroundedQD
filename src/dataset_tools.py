@@ -360,16 +360,20 @@ if __name__ == "__main__":
            _dd["cmd dims"]=_in_arch[0]._tau["action"].shape[1]
            _dd["obs dims"]=_in_arch[0]._tau["obs"].shape[1]
 
+           from tokenizers import pre_tokenizers
+           pre_tok=pre_tokenizers.Whitespace()
+
            word_lst=[]
            for _ag in _in_arch:
-               word_lst+=_ag._llm_descr.split()
+               word_lst+=[x[0] for x in pre_tok.pre_tokenize_str(_ag._llm_descr.lower())]
            word_lst_unique=list(set(word_lst))
 
-           _dd["num unique words"]=len(word_lst_unique)
+           _dd["num unique words (pretokens)"]=len(word_lst_unique)
 
            cnt=Counter(word_lst)
            zz=sorted([(k,v) for k,v in cnt.items()],key=lambda x: x[1],reverse=True) 
-           _dd["top three frequent words"]=zz[:3]
+           _thresh=3
+           _dd[f"num pretokens appearing more than {_thresh} times"]=len([x for x in zz if x[1]>_thresh])
            
            _pp = pprint.PrettyPrinter(indent=4,sort_dicts=False)
            _pp.pprint(_dd)
