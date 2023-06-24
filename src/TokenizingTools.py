@@ -8,6 +8,7 @@ import functools
 import numpy as np
 import string
 import torch
+from typing import List, Any
 
 from tokenizers import (
     decoders,
@@ -62,35 +63,39 @@ def learn_tokenizer_for_archive(arch, min_frequ=3,save_to=""):
 
     return wrapped_tokenizer, tokenizer
 
+def get_max_sequence_len(data:List[str], wrapped_tokenizer:PreTrainedTokenizerFast):
+
+    zz=_wrapped_tok(data,padding=False).input_ids
+    uu=np.max([len(x) for x in zz])
+
+    return uu
+
+    
+
+
+
 
 if __name__=="__main__":
 
     _parser = argparse.ArgumentParser(description='tokenization utils')
     _parser.add_argument('--input_archive', type=str,  help="path to input archive", default="",required=True)
     _parser.add_argument('--save_tokenizer_to', type=str,  help="directory where the tokenizer is saved", default="")
+    _parser.add_argument('--load_tokenizer_from', type=str,  help="directory path to tokenizer", default="")
+    _parser.add_argument('--arch_tokenization_info',action='store_true',help="print info on tokenization of the llm descriptions in the archive, using the learned tokenizer")
 
     _args=_parser.parse_args()
 
     with open(_args.input_archive,"rb") as fl:
         _arch=pickle.load(fl)
 
-    _wrapped_tok,_tok=learn_tokenizer_for_archive(_arch,save_to=_args.save_tokenizer_to)
+    if _args.load_tokenizer_from:
+        _wrapped_tok=PreTrainedTokenizerFast.from_pretrained(_args.load_tokenizer_from)
+    else:
+        _wrapped_tok,_tok=learn_tokenizer_for_archive(_arch,save_to=_args.save_tokenizer_to)
 
-    #sort per id
-    _sorted_vocab=sorted([(k,v) for k,v in _tok.get_vocab().items()],key=lambda x:x[1])
-
-    _example="after passing the fridge, go towards the statue, then circle back towards the bed, and then go to the cactus"
-    encoding_tok=_tok.encode(_example);
-    encoding_wrapped_tok=_wrapped_tok.encode(_example)
-    print("example==",_example)
-    print("=========== tokenizer outputs =========")
-    print(f"encoding tokens=={encoding_tok.tokens}")
-    print(f"encoding ids=={encoding_tok.ids}")
-    print(f"encoding type_ids=={encoding_tok.type_ids}")
-    print(f"decoding=={_tok.decode(encoding_tok.ids)}")
-    print("=========== wrapped tokenizer outputs =========")
-    print(f"encoding ids=={encoding_wrapped_tok}")
-    print(f"decoding=={_wrapped_tok.decode(encoding_wrapped_tok)}")
-
+    if _args.arch_tokenization_info:
+        dd={}
+        dd["maximum sequence length (#tokens)"]=get_max_sequence_len([x._llm_descr for x in _arch], wrapped_tokenizer=_wrapped_tok)
+        print(dd)
 
 

@@ -374,10 +374,10 @@ if __name__ == "__main__":
            zz=sorted([(k,v) for k,v in cnt.items()],key=lambda x: x[1],reverse=True) 
            _thresh=3
            _dd[f"num pretokens appearing more than {_thresh} times"]=len([x for x in zz if x[1]>_thresh])
+
            
            _pp = pprint.PrettyPrinter(indent=4,sort_dicts=False)
            _pp.pprint(_dd)
-
 
            import warnings
            warnings.filterwarnings("ignore")
