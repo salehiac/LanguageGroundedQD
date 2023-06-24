@@ -51,6 +51,12 @@
 
           4. Once the model is trained, how should I evaluate it?
 
+             Two different eval metrics: when conditioned on a behavior + text, does the policy i) reach the behavior ii) do what the language instructions ask it to do?
+             For this second one, two different strategies: ii.A (dumb) annotate the trajectory, see if the annotations are similar to the ones already associated to the archive.
+                                                               Just see if the objects/colors appear, and if they appear in the right order.
+                                                            ii.B generate an annotation, and ask an LLM if this annotation and the textual prompt match
+                                                            iii.C Some qualitative evaluations
+
 
 -̶ ̶R̶e̶a̶d̶ ̶t̶h̶e̶ ̶p̶a̶p̶e̶r̶ ̶t̶h̶a̶t̶ ̶c̶o̶n̶d̶i̶t̶i̶o̶n̶s̶ ̶d̶e̶c̶i̶s̶i̶o̶n̶ ̶t̶r̶a̶n̶s̶f̶o̶r̶m̶e̶r̶ ̶o̶n̶ ̶l̶a̶n̶g̶u̶a̶g̶e̶ ̶(̶P̶r̶e̶t̶r̶a̶i̶n̶i̶n̶g̶ ̶f̶o̶r̶ ̶L̶a̶n̶g̶u̶a̶g̶e̶-̶C̶o̶n̶d̶i̶t̶i̶o̶n̶e̶d̶ ̶I̶m̶i̶t̶a̶t̶i̶o̶n̶ ̶w̶i̶t̶h̶ ̶T̶r̶a̶n̶s̶f̶o̶r̶m̶e̶r̶s̶)̶
 

@@ -6,12 +6,12 @@ model_cfg:
       model_name: "distilbert-base-uncased-finetuned-sst-2-english"
       features_type: "[CLS]" #choices are "[CLS]", "AVG" or "ALL"
 train_cfg:
-  data_path: "/home/achkan/Desktop/tmp_desktop/train_data_1/described_archive_4418.pkl"
+  data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_train.pkl"
   hyperparams:
     batch_size: 4
     lr: -1
 test_cfg:
-  data_path: "/home/achkan/Desktop/tmp_desktop/train_data_1/described_archive_4418.pkl"
+  data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_test.pkl"
   batch_size: 4
   debug: 
       test_text_embedding_random_batch: 1

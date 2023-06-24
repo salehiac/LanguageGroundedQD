@@ -208,6 +208,12 @@ if __name__ == "__main__":
             help="Some policies can appear multiple times in the archive. We separate them as a form of data augmentation: this pairs the same policy with different but similar texts"
             )
 
+    _parser.add_argument(
+            '--split_archive',
+            type=float,#in [0,1]
+            help="splits archive into train/test splits, using the provided value (e.g. 0.7 means 70% of the data is kept as train data). The results are saved to --out_dir"
+            )
+
 
 
     #output arg
@@ -397,6 +403,23 @@ if __name__ == "__main__":
 
             with open(f"{_args.out_dir}/archive_fixed_duplicates.pkl","wb") as fl:
                 pickle.dump(_in_arch_cp,fl)
+
+        if _args.split_archive:
+
+            np.random.shuffle(_in_arch)
+            rr=int(_args.split_archive*len(_in_arch))
+            _train_arch=_in_arch[:rr]
+            _test_arch=_in_arch[rr:]
+
+            basename=_args.input_archive.split("/")[-1].split(".")[0]
+            out_f_train=f"{_args.out_dir}/{basename}_train.pkl"
+            out_f_test=f"{_args.out_dir}/{basename}_test.pkl"
+            with open(out_f_train,"wb") as fl:
+                pickle.dump(_train_arch,fl)
+            print(colored(f"wrote train archive to {out_f_train}","cyan",attrs=["bold"]))
+            with open(out_f_test,"wb") as fl:
+                pickle.dump(_test_arch,fl)
+            print(colored(f"wrote test archive to {out_f_test}","cyan",attrs=["bold"]))
 
 
 
