@@ -210,8 +210,10 @@ if __name__ == "__main__":
 
     _parser.add_argument(
             '--split_archive',
-            type=float,#in [0,1]
-            help="splits archive into train/test splits, using the provided value (e.g. 0.7 means 70% of the data is kept as train data). The results are saved to --out_dir"
+            metavar="x",
+            nargs=3,#the three arguments should be in [0,1] and sum to 1.0
+            type=float,
+            help="splits archive into train/val/test splits. The three input values should be normalized percentages. For example, values of [0.9, 0.05, 0.05] will keep 90%, 5%, 5% of the data as respectively train, val and test splits. The results are saved to --out_dir"
             )
 
 
@@ -365,6 +367,7 @@ if __name__ == "__main__":
            _dd["episode length"]=_in_arch[0]._tau["action"].shape[0]
            _dd["cmd dims"]=_in_arch[0]._tau["action"].shape[1]
            _dd["obs dims"]=_in_arch[0]._tau["obs"].shape[1]
+           _dd["bd dims"]=_in_arch[0]._behavior_descr.shape[1]
 
            from tokenizers import pre_tokenizers
            pre_tok=pre_tokenizers.Whitespace()
@@ -407,19 +410,34 @@ if __name__ == "__main__":
         if _args.split_archive:
 
             np.random.shuffle(_in_arch)
-            rr=int(_args.split_archive*len(_in_arch))
-            _train_arch=_in_arch[:rr]
-            _test_arch=_in_arch[rr:]
+            _r_train=_args.split_archive[0]
+            _r_val=_args.split_archive[1]
+            _r_test=_args.split_archive[2]
+
+            assert _r_train+_r_val+_r_test==1.0
+
+            _num=len(_in_arch)
+            _idx_1=int(_r_train*_num)
+            _idx_2=_idx_1+int(_r_val*_num)+1
+
+            _train_arch=_in_arch[:_idx_1]
+            _val_arch=_in_arch[_idx_1:_idx_2]
+            _test_arch=_in_arch[_idx_2:]
 
             basename=_args.input_archive.split("/")[-1].split(".")[0]
             out_f_train=f"{_args.out_dir}/{basename}_train.pkl"
+            out_f_val=f"{_args.out_dir}/{basename}_val.pkl"
             out_f_test=f"{_args.out_dir}/{basename}_test.pkl"
-            with open(out_f_train,"wb") as fl:
-                pickle.dump(_train_arch,fl)
-            print(colored(f"wrote train archive to {out_f_train}","cyan",attrs=["bold"]))
-            with open(out_f_test,"wb") as fl:
-                pickle.dump(_test_arch,fl)
-            print(colored(f"wrote test archive to {out_f_test}","cyan",attrs=["bold"]))
+            
+            def dump_arch(arch, fn, msg=""):
+                with open(fn,"wb") as fl:
+                    pickle.dump(arch,fl)
+                if msg:
+                    print(msg)
+
+            dump_arch(_train_arch, out_f_train, msg=colored(f"wrote train archive to {out_f_train}","cyan",attrs=["bold"]))
+            dump_arch(_val_arch, out_f_val, msg=colored(f"wrote val archive to {out_f_val}","cyan",attrs=["bold"]))
+            dump_arch(_test_arch, out_f_test, msg=colored(f"wrote test archive to {out_f_test}","cyan",attrs=["bold"]))
 
 
 

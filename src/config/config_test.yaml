@@ -1,7 +1,7 @@
 ---
 train_model: True #if False, a pretrained model should be provided.
 test_model: True  #
-model_cfg:
+model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_XT7jMcHDYG/" 
   block_size: 324
   n_layer: 4
@@ -10,13 +10,15 @@ model_cfg:
   bias: 0 #the original nanoGPT code says that turning it off produces better results
   dropout_p: 0.0 #nanoGPT original code says 0.0 is good for pre-training, 0.1 is good for fine-tuning
 train_cfg:
-  data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_train.pkl"
+  data_path_train: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_train.pkl"
+  data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_val.pkl"
+  max_iters : 1000 # total number of training iterations
+  val_frequ: 3 #compute validation loss only every val_frequ iterations
   hyperparams:
     batch_size: 4
     lr: -1
   adamW: 
       learning_rate : 6e-4 # max learning rate
-      max_iters : 600000 # total number of training iterations
       weight_decay : 1e-1
       beta1 : 0.9
       beta2 : 0.95
@@ -30,16 +32,8 @@ test_cfg:
   data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_test.pkl"
   batch_size: 4
 device: "cuda"
-dtype: "float32"
+dtype: "float32" 
+pretrained_model: ""
 logging: 
-  pretrained_model: ""
-  save_weights_to: "/Desktop/tmp_desktop/"
-
-  
-
-
-
-
-
-
+  log_dir: "/Desktop/tmp_desktop/"
 

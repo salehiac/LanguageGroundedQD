@@ -1,13 +1,18 @@
-import nanoGPT_QDRL
+import pickle
 import yaml
 import argparse
 
+import torch
+from transformers import PreTrainedTokenizerFast
 
-def main_train(cfg):
+import nanoGPT_QDRL
+
+def main_train(cfg,tokenizer,device,log_dir):
     pass
 
-def main_train(cfg):
+def main_test(cfg,tokenizer,device,log_dir):
     pass
+
 
 if __name__=="__main__":
 
@@ -19,10 +24,49 @@ if __name__=="__main__":
     with open(_args.config,"r") as fl:
         _config=yaml.load(fl,Loader=yaml.FullLoader)
 
+    assert _config["train_model"] or _config["pretrained_model"], "You disabled training without specifying a model to test"
+    
+    torch.set_default_dtype(getattr(torch,_config["dtype"]))
+    _device=torch.device("cpu") if not torch.cuda.is_available() else torch.device(_config["device"])
+
+    #load train/val/test archives
+    _load_archs=lambda fn: (pickle.load(f:=open(fn,"rb")),f.close())[0]
+    _arch_train_path=_config["train_cfg"]["data_path_train"]
+    _arch_val_path=_config["train_cfg"]["data_path_val"]
+    _arch_test_path=_config["test_cfg"]["data_path"]
+    _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
+
+    _cmd_dims=_arch_train[0]._tau["action"].shape[1]
+    _obs_dims=_arch_train[0]._tau["obs"].shape[1]
+    _bd_dims=_arch_train[0]._behavior_descr.shape[1]
+
+    #load tokenizer and create/load model
+    _tokenizer=PreTrainedTokenizerFast.from_pretrained(_config["model_cfg"]["learned_tokenizer"])
+    if _config["pretrained_model"]:
+
+        _model=torch.load(_config["pretrained_model"])
+
+    else:
+        _gpt_cfg=nanoGPT_QDRL.GPTConfig(
+                block_size=_config["model_cfg"]["block_size"],
+                vocab_size=len(_tokenizer.get_vocab()),
+                n_layer=_config["model_cfg"]["n_layer"],
+                n_head=_config["model_cfg"]["n_head"],
+                n_embd=_config["model_cfg"]["n_embd"],
+                dropout=_config["model_cfg"]["dropout_p"],
+                bias=_config["model_cfg"]["bias"],
+                n_action_dims=_cmd_dims,
+                n_obs_dims=_obs_dims,
+                n_bd_dims=_bd_dims,
+                )
+
+        _model=nanoGPT_QDRL.GPT(_gpt_cfg)
+
+
     if _config["train_model"]:
-        _out_train=main_train(_config)
+        _out_train=main_train(_config["train_cfg"],_tokenizer,_device,log_dir=_config["logging"]["log_dir"])
     if _config["test_model"]:
-        _out_test=main_test(_config)
+        _out_train=main_test(_config["test_cfg"],_tokenizer,_device,log_dir=_config["logging"]["log_dir"])
 
 
 

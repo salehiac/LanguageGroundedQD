@@ -87,6 +87,8 @@
 - Make sure training works on a small dataset (no obvious bugs)
 -̶ ̶L̶a̶u̶n̶c̶h̶ ̶t̶r̶a̶i̶n̶i̶n̶g̶ ̶o̶n̶ ̶s̶e̶r̶v̶e̶r̶!
 
-   That will be for the next iteration, with more complex environments!
+  TODO: check that loading function does indeed load additional heads etc that you've added
+        also, weight tying might not make sense here
+
 
 - If training goes well, start writing tiny paper
