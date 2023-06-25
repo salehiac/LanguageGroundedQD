@@ -10,6 +10,7 @@ import os
 import copy
 from wordcloud import WordCloud
 from collections import Counter 
+import torch
 
 
 from termcolor import colored
@@ -26,6 +27,9 @@ _assets = {
     "env_im": "./environment/ressources/maze_19_2.pbm",
     "xml_path": "./environment/maze_setup_5x5.xml"
 }
+
+
+#class ArchDataset
 
 
 def generate_paper_dataset(logs_root="/tmp/"):
