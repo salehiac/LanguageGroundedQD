@@ -6,6 +6,7 @@ import torch
 from transformers import PreTrainedTokenizerFast
 
 import nanoGPT_QDRL
+from dataset_tools import ArchDataset
 
 def main_train(cfg,tokenizer,device,log_dir):
     pass
@@ -29,7 +30,7 @@ if __name__=="__main__":
     torch.set_default_dtype(getattr(torch,_config["dtype"]))
     _device=torch.device("cpu") if not torch.cuda.is_available() else torch.device(_config["device"])
 
-    #load train/val/test archives
+    #load train/val/test archives and create datasets/dataloaders
     _load_archs=lambda fn: (pickle.load(f:=open(fn,"rb")),f.close())[0]
     _arch_train_path=_config["train_cfg"]["data_path_train"]
     _arch_val_path=_config["train_cfg"]["data_path_val"]
@@ -39,6 +40,15 @@ if __name__=="__main__":
     _cmd_dims=_arch_train[0]._tau["action"].shape[1]
     _obs_dims=_arch_train[0]._tau["obs"].shape[1]
     _bd_dims=_arch_train[0]._behavior_descr.shape[1]
+
+    _train_dataset=ArchDataset(_arch_train,split="train")
+    _train_loader=_train_dataset.make_data_loader(batch_size=_config["train_cfg"]["batch_size"])
+
+    _val_dataset=ArchDataset(_arch_val,split="val")
+    _val_loader=_val_dataset.make_data_loader(batch_size=_config["train_cfg"]["batch_size"])
+
+    _test_dataset=ArchDataset(_arch_test,split="test")
+    _test_loader=_test_dataset.make_data_loader(batch_size=_config["test_cfg"]["batch_size"])
 
     #load tokenizer and create/load model
     _tokenizer=PreTrainedTokenizerFast.from_pretrained(_config["model_cfg"]["learned_tokenizer"])

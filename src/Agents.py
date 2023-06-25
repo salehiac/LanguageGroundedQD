@@ -74,7 +74,7 @@ class Agent(ABC):
 
         step_by_step_inputs=torch.cat([bd_conditioning, obs, actions],1)
 
-        return [text, step_by_step_inputs]
+        return (text, step_by_step_inputs)
 
 
 _non_lin_dict={"tanh":torch.tanh, "relu": torch.relu, "sigmoid": torch.sigmoid}

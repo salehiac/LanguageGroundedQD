@@ -10,9 +10,10 @@ import os
 import copy
 from wordcloud import WordCloud
 from collections import Counter 
+from typing import List, Any, Literal
+
 import torch
-
-
+from torch.utils.data import Dataset, DataLoader
 from termcolor import colored
 from scoop import futures
 from deap import tools as deap_tools
@@ -28,8 +29,6 @@ _assets = {
     "xml_path": "./environment/maze_setup_5x5.xml"
 }
 
-
-#class ArchDataset
 
 
 def generate_paper_dataset(logs_root="/tmp/"):
@@ -139,6 +138,26 @@ def find_duplicates(arch):
                 dupes.append((ii,jj))
 
     return dupes
+
+class ArchDataset(Dataset):
+
+    def __init__(self,arch:List[Agents.SmallFC_FW],split:Literal["train", "val", "test"]):
+
+        self.ds=[x.to_batch_example() for x in arch]
+        self.split=split
+
+    def __len__(self):
+
+        return len(self.ds)
+
+    def __getitem__(self,idx):
+
+        return self.ds[idx]
+
+    def make_data_loader(self, batch_size):
+        #the default collator function will result in batches of length 2,
+        #with batch[0] being a List[str] of len batch_size, and batch[1] a torch tensor of shape batch_size*ep_len*(bd_dims+obs_dims+act_dims)
+        return DataLoader(self, batch_size=batch_size, shuffle=True if self.split=="train" else False)
 
 if __name__ == "__main__":
 
