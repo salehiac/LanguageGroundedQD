@@ -6,6 +6,8 @@ tl;dr of modifications:
 import math
 import inspect
 from collections import namedtuple
+from typing import Literal
+import pdb
 
 import torch
 import torch.nn as nn
@@ -114,7 +116,51 @@ GPTConfig=namedtuple("GPTConfig",[
     "n_obs_dims",#added for QD-RL
     "n_bd_dims",#added for QD-RL
     ])
+
+   
+def process_batch(batch,
+        tokenizer,
+        context_size):
+    """
+    batch should be a list of len 4, with 
+               batch[0] a List[str] of len batch_size of strings,
+               batch[1] a torch tensor of shape (batch_size, ep_len, bd_dims) # all rows of batch[1][example_i] shoud be the same with the current envs
+               batch[2] a torch tensor of shape (batch_size, ep_len, obs_dims)
+               batch[4] a torch tensor of shape (batch_size, ep_len, act_dims)
+
+    Since batch[1][batch_idx:]=[textual_context, full_trajectory]=[textual_context, 
+                                                                   bd, obs_0, act_0,
+                                                                   bd, obs_1, act_1, 
+                                                                   ...
+                                                                   bd, obs_N, act_N] #N=trajectory length, which is the same for all episodes
+                                                                                     
+
+    with textual_context being broken down into num_text_tokens, and each bd, obs_i, act_i being a separate token, we overall have
+         total_tokens_in_full_example= num_text_tokens + 3*N
+
+    This value is likely to be larger than the context size. In that case, this function choses a random subsequence (of consecutive bd, obs, actions) of length 
+     
+    l=context_size - num_text_tokens.
+
+    All examples in the batch will be of exactly context_size, and there wont be any need for padding (but that might change in future updates).
+
+    Note that the pos embedding should then correspond to i, ..., i+T-1. For this reason, i is also return by the function.
+
+    The function alsor returns the input ids that result from running the batch's textual inputs through the tokenizer.
+    """
+
+    text_batch=batch[0]
+    input_ids=tokenizer(text_batch, padding=True, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
+    num_text_tokens=input_ids.shape[1]
+  
+    num_required_traj_tokens=context_size-num_text_tokens
+    ep_len=batch[2].shape[1]
+
     
+
+    pdb.set_trace()
+
+
 
 
 class GPT(nn.Module):

@@ -37,6 +37,11 @@
              from _tau would suffice. The environment being simple, I'd say that even a sequence length of ~15 should largely suffice. So, in practice, it's likely
              that we'd get good results with a block size of around 350.
 
+             GOOD News: in effect, this means many more trajectory samples!
+
+             Basically, what I'm doing right now is this: the batch is indeed composed of [textual_context,full_traj], but it is preprocessed before being given to the model,
+             and ends up being [textual_context, [bd, obs_i, act_i], ..., [bd, obs_{i+T-1}, act_{i+T-1}] ] with T being the maximum context length and i a randomly selected index.
+
              Well, that's answered!
 
           2. how to superwise? Contrary to the original nanoGPT, the targets are not going to be (one-hot) distributions over the vocabulary. Instead, they are going to be 

@@ -3,7 +3,7 @@ train_model: True #if False, a pretrained model should be provided.
 test_model: True  #
 model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_XT7jMcHDYG/" 
-  block_size: 324 
+  block_size: 400
   n_layer: 4
   n_head: 4
   n_embd: 128 

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import time
 import copy
+import pdb
 
 import torch
 import numpy as np
@@ -63,7 +64,7 @@ class Agent(ABC):
 
     def to_batch_example(self):
         """
-        returns [textual_conditioning, step_by_step_inputs] with the second element a torch tensor of shape episode_len*(bd_dims+action_dims+obs_dims). 
+        returns [textual_conditioning, bd, obs, act], with bd, obs, act being respectively of shapes (ep_len,bd_dims), (ep_len,obs_dims) and (ep_len, act_dims)
         """
         text=copy.deepcopy(self._llm_descr)
         
@@ -72,9 +73,9 @@ class Agent(ABC):
         N=obs.shape[0]
         bd_conditioning=torch.tensor(self._behavior_descr).repeat(N,1)
 
-        step_by_step_inputs=torch.cat([bd_conditioning, obs, actions],1)
+        return (text, bd_conditioning, obs, actions)
 
-        return (text, step_by_step_inputs)
+
 
 
 _non_lin_dict={"tanh":torch.tanh, "relu": torch.relu, "sigmoid": torch.sigmoid}

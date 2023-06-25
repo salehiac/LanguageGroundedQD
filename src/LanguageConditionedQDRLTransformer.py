@@ -78,5 +78,17 @@ if __name__=="__main__":
     if _config["test_model"]:
         _out_train=main_test(_config["test_cfg"],_tokenizer,_device,log_dir=_config["logging"]["log_dir"])
 
+    debug=True
+    if debug:
+        _train_loader_it=iter(_train_loader)
+        bb=next(_train_loader_it)
+
+        nanoGPT_QDRL.process_batch(batch=bb,
+                tokenizer=_tokenizer, 
+                context_size=_config["model_cfg"]["block_size"])
+
+
+
+
 
 

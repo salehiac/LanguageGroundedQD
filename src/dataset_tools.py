@@ -155,8 +155,6 @@ class ArchDataset(Dataset):
         return self.ds[idx]
 
     def make_data_loader(self, batch_size):
-        #the default collator function will result in batches of length 2,
-        #with batch[0] being a List[str] of len batch_size, and batch[1] a torch tensor of shape batch_size*ep_len*(bd_dims+obs_dims+act_dims)
         return DataLoader(self, batch_size=batch_size, shuffle=True if self.split=="train" else False)
 
 if __name__ == "__main__":
