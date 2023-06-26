@@ -74,20 +74,25 @@ class QDRLTokenWindow:
     def get_act_tensor(self):
         return self.batch[:,self.act_indexes].view(self._B, self._N, self.act_dims)
 
-    def get_position_tensor(self):
+    def get_position_tensor(self,no_repeat=True):
         """
         Input to postional embedding layer. The shape will be B*N
         """
-        return torch.arange(self._N).repeat(self._B,1)+self.timestep
+        if no_repeat:
+            return torch.arange(self._N)+self.timestep
+        else:
+            return torch.arange(self._N).repeat(self._B,1)+self.timestep
 
     def embedding_to_sequence(self,bds_emb, obs_emb, acts_emb):
         """
-        takes the outputs of the embedding layers for behavior descriptors, observations and actions and rearranges them into sequences as in the original episode
-
         each of the input tensors should be of shape B*N*H, with H the embedding_dims
         """
+        assert bds_emb.shape==obs_emb.shape==acts_emb.shape, "shape mismatch"
+       
         mat=torch.cat([bds_emb, obs_emb, acts_emb],-1)
-        ret_mat=mat.reshape(self._B, -1)
+        H=obs_emb.shape[-1]
+        
+        ret_mat=mat.reshape(self._B, 3*self._N, H)
         return ret_mat
 
 
@@ -130,13 +135,6 @@ if __name__=="__main__":
             act_dims=_act_dims,
             timestep=_ts)
 
-    test_rearrange_embedding=True 
-    if test_rearrange_embedding:
-
-        _cc=manager.embedding_to_sequence(manager.get_bd_tensor(), manager.get_obs_tensor(), manager.get_act_tensor())
-        assert (_cc==_bb).all(), "in this test, the reconstructed _cc should be the same as the original batch _bb"
-        print("test passed.")
-    
     test_token_embeddings=True
     if test_token_embeddings:
         

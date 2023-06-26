@@ -94,6 +94,6 @@
 
   TODO: check that loading function does indeed load additional heads etc that you've added
         also, weight tying might not make sense here
-
+  ATTENTION: dont' forget to check if it's necessary to normalize the obs/act/bds before feeding them to the embedding layers
 
 - If training goes well, start writing tiny paper

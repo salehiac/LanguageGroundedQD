@@ -145,14 +145,29 @@ def process_batch(
     Returns:
 
         text_token_ids (torch.LongTensor): shape batch_size*T_text, with T_text the number of tokkens after padding to the token length of the longest string in the batch.
-        text_posional_embeddings (torch.LongTensor): 1d tensor of shape T_text.
-        obs_tensor (torch.tensor): shape batch_size*U*obs_dims, with U the number of timesteps in the randomly selected subtrajectory. This selection is necessary
-                                   as the context length of the attention blocks is smaller than the full number of tokens (3N) in the trajectory. Let's note
-                                      T_u=context_size-T_text
-                                   the number of tokens that must be selected. Such a sequence of consecutive tokens should always start on a bd_j.
-                                   consecutive tokens are selected, always starting on a bd_j and ending on any other token types.
-                        
+        text_posional_ids (torch.LongTensor): 1d tensor of shape T_text, to compute positional embeddings.
+        bd_tensor (torch.tensor): shape batch_size*T_u*bd_dims. See the notes section below for the defintion of T_u.
+        obs_tensor (torch.tensor): shape batch_size*T_u*obs_dims. See the notes section below for the defintion of T_u.
+        act_tensor (torch.tensor): shape batch_size*T_u*act_dims. See the notes section below for the defintion of T_u.
+        traj_timestamp_embeddings (torch.LongTensor): 1d tensor of shape T_u. See the notes section below for the defintion of T_u.
+    Notes:
+        - The context length of the attention blocks is smaller than the full number of tokens (3N) in the trajectory. Let's note
+            T_u=context_size-T_text 
+          the number of tokens that must be selected. Such a sequence of consecutive tokens should always start on a bd_j.
 
+          Let us note F=3*floor(T_u/3)) and R=T_u%3. For simplicity, we select a subsequence of F tokens
+
+            bd_j, obs_j, act_j, ..., bd_{T_u//3}, obs_{T_u//3}, act_{T_u//3} 
+
+          and if R!=0, we'll just use padding after computing the embeddings (see the next note below), just before feeding the context to the first attention block. Note that in that
+          case, including the real tokens wouldn't be of any use anyway because they wouldn't intervene in the loss (as the aim is to predict the actions) nor in the attention (as it is
+          causal). The indexes j for which a selection of this length is possible are {j|j<=N-{T_u//3}}, and one of them is selected randomly.
+
+          This gives us bd, obs and act tensors of shapes batch_size*{T_u//3}*bd_dims.
+
+        - On padding: While padding for text happends in this preprocessing, padding for the QD-RL trajectory happends later. During the forward pass, those tensors will be passed
+          to three MLPs each providing embeddings for the bds, obs and actions, and then those embeddings are rearranged as in their original order in the sequence. This will result
+          in and embedding of shape batch_size*F*embedding_dims. At this point, we will add paddings of appropriate dimensions if necessary. 
     """
 
     text_batch=batch[0]
@@ -165,6 +180,9 @@ def process_batch(
     
 
     pdb.set_trace()
+
+    """TODO: don't forget masking for the padded values! The attention's softmax is computed over all values of QK^T, and since your padding will result on garbage values on the few last
+    lines, if you don't add -inf to them, they might perturb the softmat"""
 
 
 
