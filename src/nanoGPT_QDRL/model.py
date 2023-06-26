@@ -1,6 +1,5 @@
 """
-This is a slightly modified version of the nanoGPT https://github.com/karpathy/nanoGPT
-tl;dr of modifications:
+This code extends nanoGPT (https://github.com/karpathy/nanoGPT) for conditioning on language and behavior descriptors
 """
 
 import math
@@ -122,31 +121,16 @@ def process_batch(batch,
         tokenizer,
         context_size):
     """
-    batch should be a list of len 4, with 
+    batch should be a list of len 2, with
                batch[0] a List[str] of len batch_size of strings,
-               batch[1] a torch tensor of shape (batch_size, ep_len, bd_dims) # all rows of batch[1][example_i] shoud be the same with the current envs
-               batch[2] a torch tensor of shape (batch_size, ep_len, obs_dims)
-               batch[4] a torch tensor of shape (batch_size, ep_len, act_dims)
-
-    Since batch[1][batch_idx:]=[textual_context, full_trajectory]=[textual_context, 
+               batch[1] a torch tensor of shape (batch_size, M) # with M=bd_dims+action_dims+obs_dims. 
+    
+    Since batch[1][batch_idx,:]=[textual_context, full_trajectory]=[textual_context, 
                                                                    bd, obs_0, act_0,
                                                                    bd, obs_1, act_1, 
                                                                    ...
                                                                    bd, obs_N, act_N] #N=trajectory length, which is the same for all episodes
                                                                                      
-
-    with textual_context being broken down into num_text_tokens, and each bd, obs_i, act_i being a separate token, we overall have
-         total_tokens_in_full_example= num_text_tokens + 3*N
-
-    This value is likely to be larger than the context size. In that case, this function choses a random subsequence (of consecutive bd, obs, actions) of length 
-     
-    l=context_size - num_text_tokens.
-
-    All examples in the batch will be of exactly context_size, and there wont be any need for padding (but that might change in future updates).
-
-    Note that the pos embedding should then correspond to i, ..., i+T-1. For this reason, i is also return by the function.
-
-    The function alsor returns the input ids that result from running the batch's textual inputs through the tokenizer.
     """
 
     text_batch=batch[0]
@@ -241,17 +225,6 @@ class GPT(nn.Module):
 
         return logits, loss
 
-    def crop_block_size(self, block_size):
-        # model surgery to decrease the block size if necessary
-        # e.g. we may load the GPT2 pretrained model checkpoint (block size 1024)
-        # but want to use a smaller block size for some smaller, simpler model
-        assert block_size <= self.config.block_size
-        self.config.block_size = block_size
-        self.transformer.wpe.weight = nn.Parameter(self.transformer.wpe.weight[:block_size])
-        for block in self.transformer.h:
-            if hasattr(block.attn, 'bias'):
-                block.attn.bias = block.attn.bias[:,:,:block_size,:block_size]
-
     def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
         # start with all of the candidate parameters
         param_dict = {pn: p for pn, p in self.named_parameters()}
@@ -277,22 +250,6 @@ class GPT(nn.Module):
         print(f"using fused AdamW: {use_fused}")
 
         return optimizer
-
-    def estimate_mfu(self, fwdbwd_per_iter, dt):
-        """ estimate model flops utilization (MFU) in units of A100 bfloat16 peak FLOPS """
-        # first estimate the number of flops we do per iteration.
-        # see PaLM paper Appendix B as ref: https://arxiv.org/abs/2204.02311
-        N = self.get_num_params()
-        cfg = self.config
-        L, H, Q, T = cfg.n_layer, cfg.n_head, cfg.n_embd//cfg.n_head, cfg.block_size
-        flops_per_token = 6*N + 12*L*H*Q*T
-        flops_per_fwdbwd = flops_per_token * T
-        flops_per_iter = flops_per_fwdbwd * fwdbwd_per_iter
-        # express our flops throughput as ratio of A100 bfloat16 peak flops
-        flops_achieved = flops_per_iter * (1.0/dt) # per second
-        flops_promised = 312e12 # A100 GPU bfloat16 peak flops is 312 TFLOPS
-        mfu = flops_achieved / flops_promised
-        return mfu
 
     @torch.no_grad()
     def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):

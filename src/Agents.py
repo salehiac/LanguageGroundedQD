@@ -64,18 +64,18 @@ class Agent(ABC):
 
     def to_batch_example(self):
         """
-        returns [textual_conditioning, bd, obs, act], with bd, obs, act being respectively of shapes (ep_len,bd_dims), (ep_len,obs_dims) and (ep_len, act_dims)
+        returns [textual_conditioning, step_by_step_inputs] with the second element a 1d tensor of shape (episode_len*M) with M=bd_dims+action_dims+obs_dims. 
         """
         text=copy.deepcopy(self._llm_descr)
         
         actions=torch.tensor(self._tau["action"])
         obs=torch.tensor(self._tau["obs"])
-        N=obs.shape[0]
+        N=obs.shape[0]#episode length
         bd_conditioning=torch.tensor(self._behavior_descr).repeat(N,1)
 
-        return (text, bd_conditioning, obs, actions)
+        step_by_step_inputs=torch.cat([bd_conditioning, obs, actions],1)
 
-
+        return (text, step_by_step_inputs.reshape(N*(obs.shape[1]+actions.shape[1]+bd_conditioning.shape[1])))#reshapes in a row major manner
 
 
 _non_lin_dict={"tanh":torch.tanh, "relu": torch.relu, "sigmoid": torch.sigmoid}
