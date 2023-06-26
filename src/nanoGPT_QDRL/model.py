@@ -5,12 +5,14 @@ This code extends nanoGPT (https://github.com/karpathy/nanoGPT) for conditioning
 import math
 import inspect
 from collections import namedtuple
-from typing import Literal
+from typing import Literal, List
 import pdb
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+
+import nanoGPT_QDRL.QDRLTokenWindow as QDRLTokenWindow
 
 class LayerNorm(nn.Module):
     """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
@@ -118,28 +120,47 @@ GPTConfig=namedtuple("GPTConfig",[
     ])
 
    
-def process_batch(batch,
+def process_batch(
+        batch,
         tokenizer,
         context_size):
     """
-    batch should be a list of len 2, with
-               batch[0] a List[str] of len batch_size of strings,
-               batch[1] a torch tensor of shape (batch_size, M) # with M=bd_dims+action_dims+obs_dims. 
-    
-    Since batch[1][batch_idx,:]=[textual_context, full_trajectory]=[textual_context, 
-                                                                   bd, obs_0, act_0,
-                                                                   bd, obs_1, act_1, 
-                                                                   ...
-                                                                   bd, obs_N, act_N] #N=trajectory length, which is the same for all episodes
-                                                                                     
+    Args: 
+        batch (list): a list of length 2, with
+                                        - batch[0] a list of batch_size strings
+                                        - batch[1] a tensor of shape batch_size*M, with M=ep_len*(bd_dims+obs_dims+act_dims)
+                                         each example batch[ex,:] is a 1D tensor that semantically can be separated into
+                                        [ bd_0, obs_0, act_0,
+                                          bd_1, obs_1, act_1,
+                                          ...
+                                          bd_{N-1], obs_{N-1}, act_{N-1}] #with N the episode length. Note that all example trajectories are assumed to have the same length
+                                                                          #Note that each of the bd_i, obs_i, act_i are considered as a separate token, so 
+                                                                          #there are a total of 3N tokens in each trajectory
+
+                                        with bd_i, obs_i, act_i respectively of lengths bd_dims, obs_dims and act_dims.
+        
+        tokenizer (PreTrainedTokenizerFast): A tokenizer pretrained on the corpus
+        context_size (int): the context size of the transformer
+
+    Returns:
+
+        text_token_ids (torch.LongTensor): shape batch_size*T_text, with T_text the number of tokkens after padding to the token length of the longest string in the batch.
+        text_posional_embeddings (torch.LongTensor): 1d tensor of shape T_text.
+        obs_tensor (torch.tensor): shape batch_size*U*obs_dims, with U the number of timesteps in the randomly selected subtrajectory. This selection is necessary
+                                   as the context length of the attention blocks is smaller than the full number of tokens (3N) in the trajectory. Let's note
+                                      T_u=context_size-T_text
+                                   the number of tokens that must be selected. Such a sequence of consecutive tokens should always start on a bd_j.
+                                   consecutive tokens are selected, always starting on a bd_j and ending on any other token types.
+                        
+
     """
 
     text_batch=batch[0]
     input_ids=tokenizer(text_batch, padding=True, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
-    num_text_tokens=input_ids.shape[1]
-  
-    num_required_traj_tokens=context_size-num_text_tokens
-    ep_len=batch[2].shape[1]
+    T_text=num_text_tokens=input_ids.shape[1]
+ 
+    #number of 
+    T_u=context_size-T_text
 
     
 
