@@ -91,6 +91,22 @@ class QDRLTokenWindow:
         return ret_mat
 
 
+class RLTokenEmbeddingMLP(torch.nn.Module):
+
+    def __init__(self, in_sz, emb_sz, dropout, bias=True):
+        
+        super().__init__()
+        self.l1=torch.nn.Linear(in_sz, emb_sz, bias)
+        self.nonlin=torch.nn.GELU()
+        self.l2=torch.nn.Linear(emb_sz, emb_sz, bias)
+        self.dropout=torch.nn.Dropout(dropout)
+
+    def forward(self, x):
+        x=self.l1(x)
+        x=self.nonlin(x)
+        x=self.l2(x)
+        x=self.dropout(x)
+        return x
 
 if __name__=="__main__":
 
@@ -120,3 +136,17 @@ if __name__=="__main__":
         _cc=manager.embedding_to_sequence(manager.get_bd_tensor(), manager.get_obs_tensor(), manager.get_act_tensor())
         assert (_cc==_bb).all(), "in this test, the reconstructed _cc should be the same as the original batch _bb"
         print("test passed.")
+    
+    test_token_embeddings=True
+    if test_token_embeddings:
+        
+        _emb_sz=64
+        _mlp_bds=RLTokenEmbeddingMLP(_bd_dims, _emb_sz, dropout=0.1)
+        _mlp_obs=RLTokenEmbeddingMLP(_obs_dims, _emb_sz, dropout=0.1)
+        _mlp_acts=RLTokenEmbeddingMLP(_act_dims, _emb_sz, dropout=0.1)
+
+        _emb_bds=_mlp_bds(manager.get_bd_tensor())
+        _emb_obs=_mlp_obs(manager.get_obs_tensor())
+        _emb_acts=_mlp_acts(manager.get_act_tensor())
+
+        _dd=manager.embedding_to_sequence(_emb_bds, _emb_obs, _emb_acts)
