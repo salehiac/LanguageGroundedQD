@@ -7,7 +7,8 @@ This repo reproduces the results of the paper
 bibinfo goes here
 ```
 
-**NOTE:** This repository requires `python3.8+` and `pytorch<2.0`. The results in the paper were produced with pytorch `1.11.0+cu113`. 
+**Note 1:** This repository requires `python3.8+` and `pytorch<2.0`. The results in the paper were produced with pytorch `1.11.0+cu113`. 
+**Note 2:** The transformer in this repo was implemented by extending the nanoGPT (https://github.com/karpathy/nanoGPT) language model.
 
 ## Training the model
 

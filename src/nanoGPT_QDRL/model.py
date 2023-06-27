@@ -105,7 +105,7 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
-GPTConfig=namedtuple("GPTConfig",[
+GPT_QDRLConfig=namedtuple("GPT_QDRLConfig",[
     "block_size", #this is the blocksize in tokens, not characters. It is used to specify the positional embeddings as torch.nn.Embedding(block_size, n_embd)
                   #contrary to the original transformer paper, those embeddings are learned too here.
     "vocab_size",
@@ -225,11 +225,9 @@ def process_batch(
             )
 
 
+class GPT_QDRL(nn.Module):
 
-
-class GPT(nn.Module):
-
-    def __init__(self, config:GPTConfig):
+    def __init__(self, config:GPT_QDRLConfig):
         super().__init__()
         assert config.vocab_size is not None
         assert config.block_size is not None

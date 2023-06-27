@@ -68,7 +68,7 @@ if __name__=="__main__":
         _model=torch.load(_config["pretrained_model"])
 
     else:
-        _gpt_cfg=nanoGPT_QDRL.GPTConfig(
+        _gpt_cfg=nanoGPT_QDRL.GPT_QDRLConfig(
                 block_size=_config["model_cfg"]["block_size"],
                 vocab_size=len(_tokenizer.get_vocab()),
                 n_layer=_config["model_cfg"]["n_layer"],
@@ -81,7 +81,7 @@ if __name__=="__main__":
                 n_bd_dims=_bd_dims,
                 )
 
-        _model=nanoGPT_QDRL.GPT(_gpt_cfg)
+        _model=nanoGPT_QDRL.GPT_QDRL(_gpt_cfg)
 
 
     if _config["train_model"]:
