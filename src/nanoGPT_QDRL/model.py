@@ -123,7 +123,11 @@ GPTConfig=namedtuple("GPTConfig",[
 def process_batch(
         batch,
         tokenizer,
-        context_size):
+        context_size,
+        bd_dims,
+        obs_dims,
+        act_dims,
+        device):
     """
     Args: 
         batch (list): a list of length 2, with
@@ -141,6 +145,9 @@ def process_batch(
         
         tokenizer (PreTrainedTokenizerFast): A tokenizer pretrained on the corpus
         context_size (int): the context size of the transformer
+        bd_dims (int): length of behavior descriptors
+        obs_dims (int): length of observations vector
+        act_dims (int): length of action vector
 
     Returns:
 
@@ -149,7 +156,7 @@ def process_batch(
         bd_tensor (torch.tensor): shape batch_size*T_u*bd_dims. See the notes section below for the defintion of T_u.
         obs_tensor (torch.tensor): shape batch_size*T_u*obs_dims. See the notes section below for the defintion of T_u.
         act_tensor (torch.tensor): shape batch_size*T_u*act_dims. See the notes section below for the defintion of T_u.
-        traj_timestamp_embeddings (torch.LongTensor): 1d tensor of shape T_u. See the notes section below for the defintion of T_u.
+        subseq_timestamps (torch.LongTensor): 1d tensor of shape T_u. See the notes section below for the defintion of T_u.
     Notes:
         - The context length of the attention blocks is smaller than the full number of tokens (3N) in the trajectory. Let's note
             T_u=context_size-T_text 
@@ -171,18 +178,51 @@ def process_batch(
     """
 
     text_batch=batch[0]
-    input_ids=tokenizer(text_batch, padding=True, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
-    T_text=num_text_tokens=input_ids.shape[1]
+    text_token_ids=tokenizer(text_batch, padding=True, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
+    T_text=num_text_tokens=text_token_ids.shape[1]
+    text_posional_ids=torch.arange(T_text,dtype=torch.long)
  
     #number of 
     T_u=context_size-T_text
 
-    
+    BB=batch[1].shape[0]
+    DD=bd_dims+obs_dims+act_dims
+    NN=batch[1].shape[1]//DD #episode length
+    traj_batch=batch[1].reshape(BB,NN,DD) #traj_batch[ex_i,j,:] is bd_j, obs_j, act_j
 
-    pdb.set_trace()
+    possible_js=torch.arange(0,NN-T_u//3+1,dtype=torch.long)
+    jj=torch.multinomial(torch.ones_like(possible_js).float()/possible_js.shape[0],1).item()
+
+    subsequence=traj_batch[:,jj:,:]
+
+
+    bd_tensor=subsequence[:,:,:bd_dims]
+    obs_tensor=subsequence[:,:,bd_dims:bd_dims+obs_dims]
+    act_tensor=subsequence[:,:,bd_dims+obs_dims:bd_dims+obs_dims+act_dims]
+    subseq_timestamps=torch.arange(jj,NN)
+
+
+
+    #QDRLTokenWindow is just useful for debug and will be removed in subsequent updates
+    tw=QDRLTokenWindow.QDRLTokenWindow(subsequence.reshape(BB,-1),bd_dims,obs_dims,act_dims,jj)
+    bd_tensor_dbg=tw.get_bd_tensor()
+    obs_tensor_dbg=tw.get_obs_tensor()
+    act_tensor_dbg=tw.get_act_tensor()
+    assert (bd_tensor_dbg==bd_tensor).all()
+    assert (obs_tensor_dbg==obs_tensor).all()
+    assert (act_tensor==act_tensor_dbg).all()
+    assert (subseq_timestamps==tw.get_position_tensor()).all()
 
     """TODO: don't forget masking for the padded values! The attention's softmax is computed over all values of QK^T, and since your padding will result on garbage values on the few last
     lines, if you don't add -inf to them, they might perturb the softmat"""
+    
+    return (text_token_ids.to(device),
+            text_posional_ids.to(device),
+            bd_tensor.to(device),
+            obs_tensor.to(device),
+            act_tensor.to(device),
+            subseq_timestamps.to(device),
+            )
 
 
 

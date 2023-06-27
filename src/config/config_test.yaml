@@ -32,6 +32,7 @@ test_cfg:
 device: "cuda"
 dtype: "float32" 
 pretrained_model: ""
+deterministic: True
 logging: 
   log_dir: "/Desktop/tmp_desktop/"
 

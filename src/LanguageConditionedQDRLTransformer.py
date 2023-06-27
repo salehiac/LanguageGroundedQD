@@ -1,9 +1,12 @@
 import pickle
 import yaml
 import argparse
+import numpy as np
+import random
 
 import torch
 from transformers import PreTrainedTokenizerFast
+from termcolor import colored
 
 import nanoGPT_QDRL
 from dataset_tools import ArchDataset
@@ -24,6 +27,14 @@ if __name__=="__main__":
 
     with open(_args.config,"r") as fl:
         _config=yaml.load(fl,Loader=yaml.FullLoader)
+
+    if _config["deterministic"]:
+        _seed=127
+        print(colored(f"'deterministic' was set to True in the config file, setting seed to {_seed}","magenta",attrs=["bold"]))
+        torch.manual_seed(_seed)
+        np.random.seed(_seed)
+        random.seed(_seed)
+
 
     assert _config["train_model"] or _config["pretrained_model"], "You disabled training without specifying a model to test"
     
@@ -85,7 +96,11 @@ if __name__=="__main__":
 
         nanoGPT_QDRL.process_batch(batch=bb,
                 tokenizer=_tokenizer, 
-                context_size=_config["model_cfg"]["block_size"])
+                context_size=_config["model_cfg"]["block_size"],
+                device=_device,
+                bd_dims=_bd_dims,
+                obs_dims=_obs_dims,
+                act_dims=_cmd_dims)
 
 
 

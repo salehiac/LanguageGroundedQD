@@ -3,6 +3,9 @@ import numpy as np
 import random
 
 class QDRLTokenWindow:
+    """
+    QDRLTokenWindow is just useful for debug and will be removed in subsequent updates
+    """
 
     def __init__(
             self,
