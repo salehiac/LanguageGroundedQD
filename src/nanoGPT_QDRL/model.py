@@ -49,13 +49,8 @@ class CausalSelfAttention(nn.Module):
             self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))  #### It is very important for it to be torch.tril, if it's upper triangular then QK^TV wont work
                                         .view(1, 1, config.block_size, config.block_size))
 
-    def forward(self, x, num_trailing_pads:int):
+    def forward(self, x):
         """
-        Args:
-            num_trailing_pads (int): used to mask the padding added at then end of the {bd_i, obs_i, act_i}_i sequence. While padding in the language part uses special values (e.g. [PAD] tokens), 
-                                     special values are a bit messy in the continuous case. In this repo, zero tensors are used as padding at the end of the RL trajectory, and their attentions
-                                     are then masked from the attention matrix so that their garbage values don't influence the output of Softmax(QK^T/sqrt(dim)). This is done by setting the 
-                                     rows that correspond to them to "-inf" in the attention matrix.
         """
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
 
@@ -74,7 +69,6 @@ class CausalSelfAttention(nn.Module):
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
             att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))#causal mask
             assert T==self.bias.shape[-1]==self.bias.shape[-2], "this should not happend."#this assert is used because of the previous line: why did the original code use :T, instead of ,:]?
-            att[:,:,T-num_trailing_pads:,:]=float("-inf")#RL padding mask
             att = F.softmax(att, dim=-1)
             att = self.attn_dropout(att)
             y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
@@ -130,8 +124,8 @@ class Block(nn.Module):
         self.ln_2 = LayerNorm(config.n_embd, bias=config.bias)
         self.mlp = MLP(config)
 
-    def forward(self, x, **kwargs):
-        x = x + self.attn(self.ln_1(x),**kwargs)
+    def forward(self, x):
+        x = x + self.attn(self.ln_1(x))
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -246,10 +240,8 @@ def process_batch(
     assert (act_tensor==act_tensor_dbg).all()
     assert (subseq_timestamps==tw.get_position_tensor()).all()
 
-    """TODO: don't forget masking for the padded values! The attention's softmax is computed over all values of QK^T, and since your padding will result on garbage values on the few last
-    lines, if you don't add -inf to them, they might perturb the softmat"""
-
     #pdb.set_trace()
+    
     dbg=True
     if dbg:
         print(colored(f"[DBG] context_size={context_size}, T_text={T_text}, T_u={T_u}","red",attrs=["bold"]))
@@ -323,8 +315,6 @@ class GPT_QDRL(nn.Module):
             act_tensor,
             timestamp_tensor):
 
-        print(colored("TODO: don't forget masking for the padded values!", "red", attrs=["bold"]))
-
         BB=word_idx.shape[0]
         LL=bd_tensor.shape[1]#subtrajectory length
 
@@ -360,21 +350,12 @@ class GPT_QDRL(nn.Module):
 
         xx = self.transformer.drop(xx)
         for block in self.transformer.h:
-            xx = block(xx,num_trailing_pads=num_pad)
+            xx = block(xx)
         
         xx = self.transformer.ln_f(xx)
         
         pdb.set_trace()
 
-        if targets is not None:
-            # if we are given some desired targets also calculate the loss
-            logits = self.lm_head(x)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)#reshapes into [B*T,vocab_size] and ignores idx==-1, which I think corresponds to [PAD] 
-                                                                                                       #or other special tokens
-        else:
-            # inference-time mini-optimization: only forward the lm_head on the very last position
-            logits = self.lm_head(x[:, [-1], :]) # note: using list [-1] to preserve the time dim
-            loss = None
 
         return logits, loss
 
