@@ -94,7 +94,7 @@ class MLP(nn.Module):
         x = self.dropout(x)
         return x
 
-class RLTokenEmbeddingMLP(torch.nn.Module):
+class RLMLP(torch.nn.Module):
     """
     the main reason this is separate from the MLP class here is that the MLP module is used in residual layers  
     and its c_fc is initialized differently because of that. I didn't want to change that behavior from the original repo
@@ -270,13 +270,16 @@ class GPT_QDRL(nn.Module):
             word_token_embedding = nn.Embedding(config.vocab_size, config.n_embd), 
             word_pos_embedding = nn.Embedding(config.block_size, config.n_embd), 
             timestamp_embedding = nn.Embedding(config.block_size, config.n_embd), #there might be prompts without any text at all, so the timestamps embedding should cover the entire context
-            bd_embedding=RLTokenEmbeddingMLP(config.n_bd_dims, config.n_embd),
-            obs_embedding=RLTokenEmbeddingMLP(config.n_obs_dims, config.n_embd),
-            act_embedding=RLTokenEmbeddingMLP(config.n_action_dims, config.n_embd),
+            bd_embedding=RLMLP(config.n_bd_dims, config.n_embd),
+            obs_embedding=RLMLP(config.n_obs_dims, config.n_embd),
+            act_embedding=RLMLP(config.n_action_dims, config.n_embd),
             drop = nn.Dropout(config.dropout),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
             ln_f = LayerNorm(config.n_embd, bias=config.bias),
         ))
+
+        #self.action_prediction_head=nn.Linear(config.n_embd,config.n_action_dims)
+        self.action_prediction_head=RLMLP(config.n_embd,config.n_action_dims, dropout=config.dropout)
 
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -354,10 +357,16 @@ class GPT_QDRL(nn.Module):
         
         xx = self.transformer.ln_f(xx)
         
+        #get observation embeddings
+        obs_inds=torch.arange(word_token_emb.shape[1]+1,self.config.block_size-num_pad,step=3).to(xx.device)
+        zz=xx[:,obs_inds,:]
+
+        predicted_actions=self.action_prediction_head(zz)
+
         pdb.set_trace()
+        raise Exception("loss not defined yet + don't forget to add test-time opti like that of the original code. Note that you can't check for test with self.eval since at eval, you still might want to compute the loss. Add a generation_mode parameter to forward and then do the mini-optimization based on that")
 
-
-        return logits, loss
+        return predicted_actions, loss
 
     def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
         # start with all of the candidate parameters
