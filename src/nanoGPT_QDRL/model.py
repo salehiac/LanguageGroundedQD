@@ -11,6 +11,7 @@ import pdb
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from termcolor import colored
 
 import nanoGPT_QDRL.QDRLTokenWindow as QDRLTokenWindow
 
@@ -90,6 +91,26 @@ class MLP(nn.Module):
         x = self.dropout(x)
         return x
 
+class RLTokenEmbeddingMLP(torch.nn.Module):
+    """
+    the main reason this is separate from the MLP class here is that the MLP module is used in residual layers  
+    and its c_fc is initialized differently because of that. I didn't want to change that behavior from the original repo
+    """
+
+    def __init__(self, in_sz, emb_sz, dropout=0.0, bias=True):
+        
+        super().__init__()
+        self.l1=torch.nn.Linear(in_sz, emb_sz, bias)
+        self.nonlin=torch.nn.GELU()
+        self.l2=torch.nn.Linear(emb_sz, emb_sz, bias)
+        self.dropout=torch.nn.Dropout(dropout)
+
+    def forward(self, x):
+        x=self.l1(x)
+        x=self.nonlin(x)
+        x=self.l2(x)
+        x=self.dropout(x)
+        return x
 
 class Block(nn.Module):
 
@@ -182,24 +203,27 @@ def process_batch(
     T_text=num_text_tokens=text_token_ids.shape[1]
     text_posional_ids=torch.arange(T_text,dtype=torch.long)
  
-    #number of 
     T_u=context_size-T_text
+
+   
+    min_RL_timestamp=10#this is arbitrary and just for the assert
+    assert T_u//3>min_RL_timestamp, f"The text from the batch leave room for less than {T_u} RL tokens. Either your text is too long, or you should increase the context size (config.block_size)"
 
     BB=batch[1].shape[0]
     DD=bd_dims+obs_dims+act_dims
     NN=batch[1].shape[1]//DD #episode length
-    traj_batch=batch[1].reshape(BB,NN,DD) #traj_batch[ex_i,j,:] is bd_j, obs_j, act_j
+    traj_batch=batch[1].reshape(BB,NN,DD).float() #traj_batch[ex_i,j,:] is bd_j, obs_j, act_j
 
     possible_js=torch.arange(0,NN-T_u//3+1,dtype=torch.long)
     jj=torch.multinomial(torch.ones_like(possible_js).float()/possible_js.shape[0],1).item()
 
-    subsequence=traj_batch[:,jj:,:]
+    subsequence=traj_batch[:,jj:jj+T_u//3,:]
 
 
     bd_tensor=subsequence[:,:,:bd_dims]
     obs_tensor=subsequence[:,:,bd_dims:bd_dims+obs_dims]
     act_tensor=subsequence[:,:,bd_dims+obs_dims:bd_dims+obs_dims+act_dims]
-    subseq_timestamps=torch.arange(jj,NN)
+    subseq_timestamps=torch.arange(jj,jj+T_u//3)
 
 
 
@@ -215,6 +239,14 @@ def process_batch(
 
     """TODO: don't forget masking for the padded values! The attention's softmax is computed over all values of QK^T, and since your padding will result on garbage values on the few last
     lines, if you don't add -inf to them, they might perturb the softmat"""
+
+    #pdb.set_trace()
+    dbg=True
+    if dbg:
+        print(colored(f"[DBG] context_size={context_size}, T_text={T_text}, T_u={T_u}","red",attrs=["bold"]))
+        print(colored(f"[DBG] jj={jj}, T_u//3={T_u//3}","red",attrs=["bold"]))
+        #print(batch[0])
+
     
     return (text_token_ids.to(device),
             text_posional_ids.to(device),
@@ -234,20 +266,17 @@ class GPT_QDRL(nn.Module):
         self.config = config
 
         self.transformer = nn.ModuleDict(dict(
-            wte = nn.Embedding(config.vocab_size, config.n_embd), #word token embedding
-            wpe = nn.Embedding(config.block_size, config.n_embd), #word position embedding
+            word_token_embedding = nn.Embedding(config.vocab_size, config.n_embd), 
+            word_pos_embedding = nn.Embedding(config.block_size, config.n_embd), 
+            timestamp_embedding = nn.Embedding(config.block_size, config.n_embd), #there might be prompts without any text at all, so the timestamps embedding should cover the entire context
+            bd_embedding=RLTokenEmbeddingMLP(config.n_bd_dims, config.n_embd),
+            obs_embedding=RLTokenEmbeddingMLP(config.n_obs_dims, config.n_embd),
+            act_embedding=RLTokenEmbeddingMLP(config.n_action_dims, config.n_embd),
             drop = nn.Dropout(config.dropout),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
             ln_f = LayerNorm(config.n_embd, bias=config.bias),
         ))
-        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
-        # with weight tying when using torch.compile() some warnings get generated:
-        # "UserWarning: functional_call was passed multiple values for tied weights.
-        # This behavior is deprecated and will be an error in future versions"
-        # not 100% sure what this is, so far seems to be harmless. TODO investigate
-        self.transformer.wte.weight = self.lm_head.weight # https://paperswithcode.com/method/weight-tying
 
-        # init all weights
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
         for pn, p in self.named_parameters():
@@ -266,7 +295,7 @@ class GPT_QDRL(nn.Module):
         """
         n_params = sum(p.numel() for p in self.parameters())
         if non_embedding:
-            n_params -= self.transformer.wpe.weight.numel()
+            n_params -= self.transformer.word_pos_embedding.weight.numel()
         return n_params
 
     def _init_weights(self, module):
@@ -277,15 +306,49 @@ class GPT_QDRL(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, targets=None):
-        device = idx.device
-        b, t = idx.size()
-        assert t <= self.config.block_size, f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
-        pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
+    def forward(self, 
+            word_idx,
+            word_pos,
+            bd_tensor,
+            obs_tensor,
+            act_tensor,
+            timestamp_tensor):
 
-        # forward the GPT model itself
-        tok_emb = self.transformer.wte(idx) # token embeddings of shape (b, t, n_embd)
-        pos_emb = self.transformer.wpe(pos) # position embeddings of shape (t, n_embd)
+        print(colored("TODO: don't forget masking for the padded values!", "red", attrs=["bold"]))
+
+        BB=word_idx.shape[0]
+        LL=bd_tensor.shape[1]#subtrajectory length
+
+        word_token_emb= self.transformer.word_token_embedding(word_idx) # (B, T_text, embd_sz)
+        word_pos_emb = self.transformer.word_pos_embedding(word_pos) # (T_text, embd_sz)
+
+        bd_emb=self.transformer.bd_embedding(bd_tensor)
+        obs_emb=self.transformer.obs_embedding(obs_tensor)
+        act_emb=self.transformer.act_embedding(act_tensor)
+        timestamp_rep=timestamp_tensor.reshape(-1,1).repeat(1,3).reshape(-1)#each timestamp i is used for three consecutive tokens bd_i, obs_i, act_i (note that padding hasn't happened yet)
+        timestamp_emb=self.transformer.timestamp_embedding(timestamp_rep)
+
+        emb_sz=self.config.n_embd
+        RL_emb=torch.cat([bd_emb, obs_emb, act_emb],-1).view(BB,3*LL,emb_sz)#3*LL==3*(T_u//3), see the docstring of process_batch for T_u's definition
+        
+        RL_emb_dbg=torch.cat([bd_emb, obs_emb, act_emb],-1)#(BB, LL, n_embd*3)
+        for ii in range(LL):
+            assert (RL_emb_dbg[:,ii,0:emb_sz]==RL_emb[:,ii*3,:]).all()
+            assert (RL_emb_dbg[:,ii,emb_sz:2*emb_sz]==RL_emb[:,ii*3+1,:]).all()
+            assert (RL_emb_dbg[:,ii,2*emb_sz:3*emb_sz]==RL_emb[:,ii*3+2,:]).all()
+        
+        x1=word_token_emb+word_pos_emb
+        x2=RL_emb+timestamp_emb
+
+        xx=torch.cat([x1, x2],1)#(B,context_length-T_u%3,emb_sz), see the docstring of process_batch for T_u's defintion
+
+        #padding if necessary
+        num_pad=self.config.block_size-xx.shape[1]
+        padding_tensor=torch.zeros(BB,self.config.block_size-xx.shape[1],emb_sz).to(xx.device)
+        xx=torch.cat([xx, padding_tensor],1)
+
+        pdb.set_trace()
+
         x = self.transformer.drop(tok_emb + pos_emb)
         for block in self.transformer.h:
             x = block(x)

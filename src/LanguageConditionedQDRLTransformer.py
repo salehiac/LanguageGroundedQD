@@ -82,6 +82,7 @@ if __name__=="__main__":
                 )
 
         _model=nanoGPT_QDRL.GPT_QDRL(_gpt_cfg)
+        _model.to(_device)
 
 
     if _config["train_model"]:
@@ -92,9 +93,9 @@ if __name__=="__main__":
     debug=True
     if debug:
         _train_loader_it=iter(_train_loader)
-        bb=next(_train_loader_it)
+        _bb=next(_train_loader_it)
 
-        nanoGPT_QDRL.process_batch(batch=bb,
+        _processed_batch=nanoGPT_QDRL.process_batch(batch=_bb,
                 tokenizer=_tokenizer, 
                 context_size=_config["model_cfg"]["block_size"],
                 device=_device,
@@ -102,8 +103,14 @@ if __name__=="__main__":
                 obs_dims=_obs_dims,
                 act_dims=_cmd_dims)
 
+        (text_token_ids, 
+                text_posional_ids,
+                bd_tensor,
+                obs_tensor,
+                act_tensor,
+                subseq_timestamps
+                )=_processed_batch
 
-
-
+        _model(*_processed_batch)
 
 

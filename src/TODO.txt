@@ -96,5 +96,8 @@
         also, weight tying might not make sense here
   ATTENTION: dont' forget to check if it's necessary to normalize the obs/act/bds before feeding them to the embedding layers
   TODO: remove QDRLTokenWindow as it doesn't serve any purposes anymore
+  NOTE: there is no need for weight tying as there is no need to output text (so no lm_head, unlike what happend in the origianl GPT implem)
+
+  NOTE: check the number of params function from GPT, update it
 
 - If training goes well, start writing tiny paper
