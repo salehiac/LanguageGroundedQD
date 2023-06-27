@@ -49,7 +49,14 @@ class CausalSelfAttention(nn.Module):
             self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))  #### It is very important for it to be torch.tril, if it's upper triangular then QK^TV wont work
                                         .view(1, 1, config.block_size, config.block_size))
 
-    def forward(self, x):
+    def forward(self, x, num_trailing_pads:int):
+        """
+        Args:
+            num_trailing_pads (int): used to mask the padding added at then end of the {bd_i, obs_i, act_i}_i sequence. While padding in the language part uses special values (e.g. [PAD] tokens), 
+                                     special values are a bit messy in the continuous case. In this repo, zero tensors are used as padding at the end of the RL trajectory, and their attentions
+                                     are then masked from the attention matrix so that their garbage values don't influence the output of Softmax(QK^T/sqrt(dim)). This is done by setting the 
+                                     rows that correspond to them to "-inf" in the attention matrix.
+        """
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
@@ -65,7 +72,9 @@ class CausalSelfAttention(nn.Module):
         else:
             # manual implementation of attention
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-            att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
+            att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))#causal mask
+            assert T==self.bias.shape[-1]==self.bias.shape[-2], "this should not happend."#this assert is used because of the previous line: why did the original code use :T, instead of ,:]?
+            att[:,:,T-num_trailing_pads:,:]=float("-inf")#RL padding mask
             att = F.softmax(att, dim=-1)
             att = self.attn_dropout(att)
             y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
@@ -121,8 +130,8 @@ class Block(nn.Module):
         self.ln_2 = LayerNorm(config.n_embd, bias=config.bias)
         self.mlp = MLP(config)
 
-    def forward(self, x):
-        x = x + self.attn(self.ln_1(x))
+    def forward(self, x, **kwargs):
+        x = x + self.attn(self.ln_1(x),**kwargs)
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -347,12 +356,15 @@ class GPT_QDRL(nn.Module):
         padding_tensor=torch.zeros(BB,self.config.block_size-xx.shape[1],emb_sz).to(xx.device)
         xx=torch.cat([xx, padding_tensor],1)
 
-        pdb.set_trace()
+        #pdb.set_trace()
 
-        x = self.transformer.drop(tok_emb + pos_emb)
+        xx = self.transformer.drop(xx)
         for block in self.transformer.h:
-            x = block(x)
-        x = self.transformer.ln_f(x)
+            xx = block(xx,num_trailing_pads=num_pad)
+        
+        xx = self.transformer.ln_f(xx)
+        
+        pdb.set_trace()
 
         if targets is not None:
             # if we are given some desired targets also calculate the loss

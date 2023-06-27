@@ -99,5 +99,5 @@
   NOTE: there is no need for weight tying as there is no need to output text (so no lm_head, unlike what happend in the origianl GPT implem)
 
   NOTE: check the number of params function from GPT, update it
+  TODO: remove the asserts I've added in the model.py file to speed things up
 
-- If training goes well, start writing tiny paper
