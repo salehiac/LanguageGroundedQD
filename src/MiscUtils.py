@@ -10,6 +10,7 @@ import numpy as np
 from functools import reduce
 import string
 import re
+import math
 import torch
 
 sys.path.append("../")
@@ -85,6 +86,26 @@ def normalize_th(x,low, high,scale, return_inverse_function:bool):
             return (yy/scale-b)/a
 
         return res*scale, inv_f
+
+def get_lr(it,
+        warmup_iters,
+        lr_decay_iters,
+        learning_rate,
+        min_lr):
+    """
+    same as what happends in nanoGPT's original train loop
+    learning rate decay scheduler (cosine with warmup)
+    """
+    if it < warmup_iters:
+        return learning_rate * (1+it) / warmup_iters
+    if it > lr_decay_iters:
+        return min_lr
+    #in between, use cosine decay down to min learning rate
+    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
+    assert 0 <= decay_ratio <= 1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
+    return min_lr + coeff * (learning_rate - min_lr)
+
     
 @dataclass
 class colors:

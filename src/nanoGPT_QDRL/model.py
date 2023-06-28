@@ -243,7 +243,7 @@ def process_batch(
 
     #pdb.set_trace()
     
-    dbg=True
+    dbg=False
     if dbg:
         print(colored(f"[DBG] context_size={context_size}, T_text={T_text}, T_u={T_u}","red",attrs=["bold"]))
         print(colored(f"[DBG] jj={jj}, T_u//3={T_u//3}","red",attrs=["bold"]))
@@ -296,16 +296,10 @@ class GPT_QDRL(nn.Module):
         # report number of parameters
         print("number of parameters: %.2fM" % (self.get_num_params()/1e6,))
 
-    def get_num_params(self, non_embedding=True):
+    def get_num_params(self):
         """
-        Return the number of parameters in the model.
-        For non-embedding count (default), the position embeddings get subtracted.
-        The token embeddings would too, except due to the parameter sharing these
-        params are actually used as weights in the final layer, so we include them.
         """
         n_params = sum(p.numel() for p in self.parameters())
-        if non_embedding:
-            n_params -= self.transformer.word_pos_embedding.weight.numel()
         return n_params
 
     def _init_weights(self, module):
@@ -420,6 +414,7 @@ class GPT_QDRL(nn.Module):
     @torch.no_grad()
     def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
         """
+        [TODO]
         Take a conditioning sequence of indices idx (LongTensor of shape (b,t)) and complete
         the sequence max_new_tokens times, feeding the predictions back into the model each time.
         Most likely you'll want to make sure to be in model.eval() mode of operation for this.
@@ -443,3 +438,5 @@ class GPT_QDRL(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
+
+

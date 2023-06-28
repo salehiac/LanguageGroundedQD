@@ -4,16 +4,120 @@ import argparse
 import numpy as np
 import random
 import functools
+import pdb
+import matplotlib.pyplot as plt
 
 import torch
 from transformers import PreTrainedTokenizerFast
 from termcolor import colored
+import tqdm
 
 import nanoGPT_QDRL
 from dataset_tools import ArchDataset
+import MiscUtils
 
-def main_train(cfg,tokenizer,device,log_dir):
-    pass
+def main_train(
+        model,
+        train_loader,
+        val_loader,
+        cfg,
+        context_length,
+        input_dims,
+        tokenizer,
+        input_normalizer,
+        device,
+        log_dir):
+    """
+    train and validation
+    """
+
+
+
+    learning_rate=float(cfg["adamW"]["learning_rate"])
+    optimizer=model.configure_optimizers(
+            float(cfg["adamW"]["weight_decay"]),
+            learning_rate,
+            (float(cfg["adamW"]["beta1"]),float(cfg["adamW"]["beta2"])),
+            device_type=device.type)
+
+    num_train_steps=0
+    train_loss_hist=[]
+    val_loss_hist=[]
+    for epoch_i in tqdm.tqdm(range(cfg["max_epochs"]),desc="epochs"):
+
+
+        ##training loop
+        model.train()
+        train_loss_epc=[]
+        lr=MiscUtils.get_lr(it=num_train_steps,
+                warmup_iters=cfg["schedule"]["warmup_steps"],
+                lr_decay_iters=cfg["schedule"]["lr_decay_steps"],
+                learning_rate=learning_rate,
+                min_lr=float(cfg["schedule"]["min_lr"])) if cfg["schedule"]["decay_lr"] else learning_rate
+ 
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+
+        for batch in tqdm.tqdm(train_loader,desc="epoch progress (train)",leave=False):
+
+            optimizer.zero_grad()
+            processed_batch=nanoGPT_QDRL.process_batch(
+                    batch=batch,
+                    tokenizer=tokenizer, 
+                    context_size=context_length,
+                    bd_dims=input_dims["bd"],
+                    obs_dims=input_dims["obs"],
+                    act_dims=input_dims["act"],
+                    device=_device,
+                    input_normalizer=_input_normalizer)
+
+            #(text_token_ids, 
+            #        text_posional_ids,
+            #        bd_tensor,
+            #        obs_tensor,
+            #        act_tensor,
+            #        subseq_timestamps
+            #        )=processed_batch
+
+            predicted_actions, loss=model(*processed_batch,generation_mode=False)
+            loss.backward()
+            optimizer.step()
+
+            train_loss_epc.append(loss.item())
+
+            if cfg["adamW"]["grad_clip"]!=0.0:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), cfg["adamW"]["grad_clip"])
+        train_loss_hist.append(np.mean(train_loss_epc))
+        num_train_steps+=1
+
+ 
+        ##val loop (no hyperparam optimization here, the val loss is just used to chose a model at the end)
+        with torch.no_grad():
+            model.eval()
+            val_loss_epc=[]
+            for batch_val in tqdm.tqdm(val_loader,desc="epoch progress (val)",leave=False):
+                processed_batch_val=nanoGPT_QDRL.process_batch(
+                    batch=batch_val,
+                    tokenizer=tokenizer, 
+                    context_size=context_length,
+                    bd_dims=input_dims["bd"],
+                    obs_dims=input_dims["obs"],
+                    act_dims=input_dims["act"],
+                    device=_device,
+                    input_normalizer=_input_normalizer)
+            
+            predicted_actions_val, loss_val=model(*processed_batch_val,generation_mode=False)
+            val_loss_epc.append(loss_val.item())
+        val_loss_hist.append(np.mean(val_loss_epc))
+
+        print(train_loss_hist)
+        print(val_loss_hist)
+
+    plt.plot(train_loss_hist,"r")
+    plt.plot(val_loss_hist,"b")
+    plt.show()
+
+
 
 def main_test(cfg,tokenizer,device,log_dir):
     pass
@@ -85,26 +189,36 @@ if __name__=="__main__":
         _model=nanoGPT_QDRL.GPT_QDRL(_gpt_cfg)
         _model.to(_device)
 
+    _input_normalizer=None
+    if any(_config["input_normalization"]["normalize"]):
+        if _config["input_normalization"]["env_type"]=="navigation_env":
+            from dataset_tools import make_navigation_env
+            _nav_env=make_navigation_env()
+            _input_normalizer=functools.partial(_nav_env.normalize_bd_obs_act,options=_config["input_normalization"]["normalize"],dbg=True)
+        else: 
+            raise NotImplementedError("Only available env is navigation_env")
 
     if _config["train_model"]:
-        _out_train=main_train(_config["train_cfg"],_tokenizer,_device,log_dir=_config["logging"]["log_dir"])
+        _out_train=main_train(
+                model=_model,
+                train_loader=_train_loader,
+                val_loader=_val_loader,
+                cfg=_config["train_cfg"],
+                context_length=_config["model_cfg"]["block_size"],
+                input_dims={"bd":_bd_dims, "obs":_obs_dims, "act":_cmd_dims},
+                tokenizer=_tokenizer,
+                input_normalizer=_input_normalizer,
+                device=_device,
+                log_dir=_config["logging"]["log_dir"])
     if _config["test_model"]:
         _out_train=main_test(_config["test_cfg"],_tokenizer,_device,log_dir=_config["logging"]["log_dir"])
 
-    debug=True
+    debug=False
     if debug:
         _train_loader_it=iter(_train_loader)
         _bb=next(_train_loader_it)
 
-        _input_normalizer=None
-        if any(_config["input_normalization"]["normalize"]):
-            if _config["input_normalization"]["env_type"]=="navigation_env":
-                from dataset_tools import make_navigation_env
-                _nav_env=make_navigation_env()
-                _input_normalizer=functools.partial(_nav_env.normalize_bd_obs_act,options=_config["input_normalization"]["normalize"],dbg=True)
-            else: 
-                raise NotImplementedError("Only available env is navigation_env")
-
+       
         _processed_batch=nanoGPT_QDRL.process_batch(batch=_bb,
                 tokenizer=_tokenizer, 
                 context_size=_config["model_cfg"]["block_size"],
