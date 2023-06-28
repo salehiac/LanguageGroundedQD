@@ -4,9 +4,9 @@ test_model: True  #
 model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_XT7jMcHDYG/" 
   block_size: 402
-  n_layer: 4
-  n_head: 4
-  n_embd: 128 
+  n_layer: 5
+  n_head: 5
+  n_embd: 450
   bias: 0 #the original nanoGPT code says that turning it off produces better results
   dropout_p: 0.0 #nanoGPT original code says 0.0 is good for pre-training, 0.1 is good for fine-tuning
 input_normalization:
@@ -16,7 +16,7 @@ input_normalization:
 train_cfg:
   data_path_train: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_train.pkl"
   data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_val.pkl"
-  max_epochs: 100 # total number of training iterations
+  max_epochs: 300 # total number of training iterations
   val_frequ: 3 #compute validation loss only every val_frequ iterations
   batch_size: 32
   adamW: 
