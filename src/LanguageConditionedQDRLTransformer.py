@@ -111,6 +111,6 @@ if __name__=="__main__":
                 subseq_timestamps
                 )=_processed_batch
 
-        _model(*_processed_batch)
+        predicted_actions, loss=_model(*_processed_batch,generation_mode=False)
 
 

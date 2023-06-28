@@ -316,7 +316,19 @@ class GPT_QDRL(nn.Module):
             bd_tensor,
             obs_tensor,
             act_tensor,
-            timestamp_tensor):
+            timestamp_tensor,
+            generation_mode:bool):
+        """
+        Args
+            word_idx (torch.tensor): token indexes as returned by the tokenizer, shape (B, T_{text})
+            word_pos (torch.tensor): word position indexes, shape T_{text}
+            bd_tensor (torch.tensor): behavior descriptors bd_j, ..., bd_{j+LL}. Of shape (B, LL, bd_dims)
+            obs_tensor (torch.tensor): observations obs_j, ..., obs_{j+LL}. Of shape (B, LL, obs_dims)
+            act_tensor (torch.tensor): actions act_j, ..., act_{j+LL}. Of shape (B, LL, act_dims)
+            timestamp_tensor (torch.tensor): timestamps j, ..., {j+LL} corresponding to the subtrajectory
+            generation_mode (bool): if True, indicates that we don't care about attention prediction except at the last layer. Note that this in general different from
+                                    val/test mode, as we still often want to compute the loss at each step for those splits. It could be seen as a special case of test mode.
+        """
 
         BB=word_idx.shape[0]
         LL=bd_tensor.shape[1]#subtrajectory length
@@ -359,12 +371,17 @@ class GPT_QDRL(nn.Module):
         
         #get observation embeddings
         obs_inds=torch.arange(word_token_emb.shape[1]+1,self.config.block_size-num_pad,step=3).to(xx.device)
-        zz=xx[:,obs_inds,:]
 
-        predicted_actions=self.action_prediction_head(zz)
+        if not generation_mode:
+            zz=xx[:,obs_inds,:]
+            predicted_actions=self.action_prediction_head(zz)#(B, LL, act_dims)
 
-        pdb.set_trace()
-        raise Exception("loss not defined yet + don't forget to add test-time opti like that of the original code. Note that you can't check for test with self.eval since at eval, you still might want to compute the loss. Add a generation_mode parameter to forward and then do the mini-optimization based on that")
+            #compute loss
+            loss=((predicted_actions-act_tensor)**2).mean()#same as MSELoss with "mean" reduction
+        else:
+            zz=xx[:,[obs_inds[-1]],:]
+            predicted_actions=self.action_prediction_head(zz) #(B, 1, act_dims)
+            loss=None
 
         return predicted_actions, loss
 
