@@ -151,7 +151,8 @@ def process_batch(
         bd_dims,
         obs_dims,
         act_dims,
-        device):
+        device,
+        input_normalizer=None):
     """
     Args: 
         batch (list): a list of length 2, with
@@ -248,6 +249,11 @@ def process_batch(
         print(colored(f"[DBG] jj={jj}, T_u//3={T_u//3}","red",attrs=["bold"]))
         #print(batch[0])
 
+    if input_normalizer is not None:
+        bd_tensor, obs_tensor, act_tensor=input_normalizer(
+                bd_tensor=bd_tensor,
+                obs_tensor=obs_tensor,
+                act_tensor=act_tensor)
     
     return (text_token_ids.to(device),
             text_posional_ids.to(device),

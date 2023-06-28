@@ -5,6 +5,7 @@ import cv2
 import pdb
 import sys
 import os
+import torch
 
 from functools import reduce
 import string
@@ -58,8 +59,50 @@ class NavigationEnv:
     def get_bd_dims(self):
         return self.bd_extractor.get_bd_dims()
     
-    def get_behavior_space_boundaries(self):
-        return np.array([[0,600],[0,600]])
+    def get_behavior_space_boundaries(self,as_gym_space:bool=False):
+        if not as_gym_space:
+            return np.array([[0,600],[0,600]])
+        else:
+            return gym.spaces.box.Box(low=0,high=600,shape=(2,))
+    
+    def normalize_bd_obs_act(self, 
+            options:dict,
+            bd_tensor:torch.tensor,
+            obs_tensor:torch.tensor,
+            act_tensor:torch.tensor,
+            dbg:bool):
+
+        if options["bds"]:
+            normalized_bds, inv_f=MiscUtils.normalize_th(bd_tensor,low=0,high=600,scale=1.0,return_inverse_function=dbg)
+            if dbg:
+                assert torch.allclose(bd_tensor, inv_f(normalized_bds))
+        else:
+            normalized_bds=bd_tensor
+
+        if options["obs"]:
+            #the three first obs are between [0,100]
+            low_A=self.env.observation_space.low[0]
+            high_A=self.env.observation_space.high[0]
+            #the two last obs are booleans
+            low_B=self.env.observation_space.low[-1]
+            high_B=self.env.observation_space.high[-1]
+            normalized_obs_A, inv_f_A=MiscUtils.normalize_th(obs_tensor[:,:,:3],low=low_A,high=high_A,scale=1.0,return_inverse_function=dbg)
+            normalized_obs_B, inv_f_B=MiscUtils.normalize_th(obs_tensor[:,:,3:],low=low_B,high=high_B,scale=1.0,return_inverse_function=dbg)
+            if dbg:
+                assert torch.allclose(obs_tensor[:,:,:3], inv_f_A(normalized_obs_A))
+                assert torch.allclose(obs_tensor[:,:,3:], inv_f_B(normalized_obs_B))
+
+            normalized_obs=torch.cat([normalized_obs_A,normalized_obs_B],2)
+        else:
+            normalized_obs=obs_tensor
+
+        if options["act"]:
+            raise Exception("action normalization is not available. Is it a good idea? If so, feel free too implement it.")
+        else:
+            normalized_acts=act_tensor
+
+        return normalized_bds, normalized_obs, normalized_acts
+
 
     def __call__(self, ag):
 

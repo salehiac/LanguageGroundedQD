@@ -9,6 +9,10 @@ model_cfg:
   n_embd: 128 
   bias: 0 #the original nanoGPT code says that turning it off produces better results
   dropout_p: 0.0 #nanoGPT original code says 0.0 is good for pre-training, 0.1 is good for fine-tuning
+input_normalization:
+  #Not sure if necessary. Even though input embeddings result from MLPs, attention blocks start with layernorm.
+  normalize: {"bds": True, "obs": True, "act": False}
+  env_type: "navigation_env" #only needed if the normalize dict above has keys that are True. Currenlty, the only available choice in 'navigation_env'
 train_cfg:
   data_path_train: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_train.pkl"
   data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_val.pkl"

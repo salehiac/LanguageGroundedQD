@@ -139,6 +139,10 @@ def find_duplicates(arch):
 
     return dupes
 
+def make_navigation_env():
+
+    return NavigationEnv.NavigationEnv(bd_type="generic", assets=_assets)
+
 class ArchDataset(Dataset):
 
     def __init__(self,arch:List[Agents.SmallFC_FW],split:Literal["train", "val", "test"]):

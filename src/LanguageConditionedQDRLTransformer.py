@@ -3,6 +3,7 @@ import yaml
 import argparse
 import numpy as np
 import random
+import functools
 
 import torch
 from transformers import PreTrainedTokenizerFast
@@ -95,14 +96,24 @@ if __name__=="__main__":
         _train_loader_it=iter(_train_loader)
         _bb=next(_train_loader_it)
 
+        _input_normalizer=None
+        if any(_config["input_normalization"]["normalize"]):
+            if _config["input_normalization"]["env_type"]=="navigation_env":
+                from dataset_tools import make_navigation_env
+                _nav_env=make_navigation_env()
+                _input_normalizer=functools.partial(_nav_env.normalize_bd_obs_act,options=_config["input_normalization"]["normalize"],dbg=True)
+            else: 
+                raise NotImplementedError("Only available env is navigation_env")
+
         _processed_batch=nanoGPT_QDRL.process_batch(batch=_bb,
                 tokenizer=_tokenizer, 
                 context_size=_config["model_cfg"]["block_size"],
-                device=_device,
                 bd_dims=_bd_dims,
                 obs_dims=_obs_dims,
-                act_dims=_cmd_dims)
-
+                act_dims=_cmd_dims,
+                device=_device,
+                input_normalizer=_input_normalizer)
+       
         (text_token_ids, 
                 text_posional_ids,
                 bd_tensor,
@@ -112,5 +123,4 @@ if __name__=="__main__":
                 )=_processed_batch
 
         predicted_actions, loss=_model(*_processed_batch,generation_mode=False)
-
 

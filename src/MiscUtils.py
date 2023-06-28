@@ -10,6 +10,7 @@ import numpy as np
 from functools import reduce
 import string
 import re
+import torch
 
 sys.path.append("../")
 
@@ -57,6 +58,33 @@ def selBest(individuals,k,fit_attr=None,automatic_threshold=True):
 
     s_indx=np.argsort(individual_novs).tolist()[::-1]#decreasing order
     return [individuals[i] for i in s_indx[:k]]
+
+def normalize_th(x,low, high,scale, return_inverse_function:bool):
+    """
+    finds ax+b to map x in [low, high] to [-scale,scale]
+
+    if return_inverse_function is True, then the function also returns and f that does the inverse mapping
+    """
+
+    m=low
+    M=high
+    assert m<M
+    assert (x<=high).all()
+    assert (x>=low).all()
+
+    a=2/(M-m)
+    b=-(M+m)/(M-m)
+    #print(f'a={a},   b={b}')
+    res=a*x+b
+
+    if not return_inverse_function:
+        return res*scale, None
+    else:
+        def inv_f(yy):
+
+            return (yy/scale-b)/a
+
+        return res*scale, inv_f
     
 @dataclass
 class colors:
@@ -83,5 +111,18 @@ def add_newlines(string, chars_per_line=60):
     return '\n'.join(lines)
 
 
+if __name__=="__main__":
+
+    _test_tensor=torch.rand(4,5)*100
+    _normalized_tensor,_inv_f=normalize_th(_test_tensor, low=-100,high=100,scale=1.0,return_inverse_function=True)
+    _recons=_inv_f(_normalized_tensor)
+    print(f"test_tensor\n {_test_tensor}\nnormalized_tensor\n {_normalized_tensor}\n************")
+    print(f"inverse function correct? {torch.allclose(_test_tensor, _recons)}\n********************************")
+
+    _test_tensor=torch.rand(4,5)*5+4
+    _normalized_tensor, _inv_f=normalize_th(_test_tensor, low=-2,high=16,scale=1.0,return_inverse_function=True)
+    print(f"test_tensor\n {_test_tensor}\nnormalized_tensor\n {_normalized_tensor}\n************")
+    _recons=_inv_f(_normalized_tensor)
+    print(f"inverse function correct? {torch.allclose(_test_tensor, _recons)}\n********************************")
 
 
