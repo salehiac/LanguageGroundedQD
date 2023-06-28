@@ -92,23 +92,26 @@ def main_train(
 
  
         ##val loop (no hyperparam optimization here, the val loss is just used to chose a model at the end)
-        with torch.no_grad():
-            model.eval()
-            val_loss_epc=[]
-            for batch_val in tqdm.tqdm(val_loader,desc="epoch progress (val)",leave=False):
-                processed_batch_val=nanoGPT_QDRL.process_batch(
-                    batch=batch_val,
-                    tokenizer=tokenizer, 
-                    context_size=context_length,
-                    bd_dims=input_dims["bd"],
-                    obs_dims=input_dims["obs"],
-                    act_dims=input_dims["act"],
-                    device=_device,
-                    input_normalizer=_input_normalizer)
-            
-            predicted_actions_val, loss_val=model(*processed_batch_val,generation_mode=False)
-            val_loss_epc.append(loss_val.item())
-        val_loss_hist.append(np.mean(val_loss_epc))
+        if epoch_i%cfg["val_frequ"]==0:
+            with torch.no_grad():
+                model.eval()
+                val_loss_epc=[]
+                for batch_val in tqdm.tqdm(val_loader,desc="epoch progress (val)",leave=False):
+                    processed_batch_val=nanoGPT_QDRL.process_batch(
+                        batch=batch_val,
+                        tokenizer=tokenizer, 
+                        context_size=context_length,
+                        bd_dims=input_dims["bd"],
+                        obs_dims=input_dims["obs"],
+                        act_dims=input_dims["act"],
+                        device=_device,
+                        input_normalizer=_input_normalizer)
+                
+                    predicted_actions_val, loss_val=model(*processed_batch_val,generation_mode=False)
+                    val_loss_epc.append(loss_val.item())
+                val_loss_epc_mean=np.mean(val_loss_epc)
+        #we still add the val_loss_epc_mean even epoch_i%val_frequ!=0. This is just for display, so that we get the same number of inputs to plt.plot as for train, without interpolation
+        val_loss_hist.append(val_loss_epc_mean)
 
         print(train_loss_hist)
         print(val_loss_hist)

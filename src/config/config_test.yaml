@@ -18,7 +18,7 @@ train_cfg:
   data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_val.pkl"
   max_epochs: 10 # total number of training iterations
   val_frequ: 3 #compute validation loss only every val_frequ iterations
-  batch_size: 4
+  batch_size: 32
   adamW: 
       learning_rate : 6e-4 # max learning rate
       weight_decay : 1e-1
