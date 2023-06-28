@@ -12,6 +12,7 @@ import string
 import re
 import math
 import torch
+import matplotlib.pyplot as plt
 
 sys.path.append("../")
 
@@ -106,6 +107,18 @@ def get_lr(it,
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
 
+def plot_planned_scheduling(
+        warmup_iters,
+        lr_decay_iters,
+        learning_rate,
+        min_lr):
+    mm=[get_lr(_it,warmup_iters,lr_decay_iters,learning_rate,min_lr) for _it in range(100000)]
+    plt.plot(mm)
+    plt.title("warmup + cosine annealing (no restarts)")
+    plt.show()
+    plt.close()
+ 
+
     
 @dataclass
 class colors:
@@ -134,16 +147,33 @@ def add_newlines(string, chars_per_line=60):
 
 if __name__=="__main__":
 
-    _test_tensor=torch.rand(4,5)*100
-    _normalized_tensor,_inv_f=normalize_th(_test_tensor, low=-100,high=100,scale=1.0,return_inverse_function=True)
-    _recons=_inv_f(_normalized_tensor)
-    print(f"test_tensor\n {_test_tensor}\nnormalized_tensor\n {_normalized_tensor}\n************")
-    print(f"inverse function correct? {torch.allclose(_test_tensor, _recons)}\n********************************")
+    test_normalize_th=False
+    if test_normalize_th:
+        _test_tensor=torch.rand(4,5)*100
+        _normalized_tensor,_inv_f=normalize_th(_test_tensor, low=-100,high=100,scale=1.0,return_inverse_function=True)
+        _recons=_inv_f(_normalized_tensor)
+        print(f"test_tensor\n {_test_tensor}\nnormalized_tensor\n {_normalized_tensor}\n************")
+        print(f"inverse function correct? {torch.allclose(_test_tensor, _recons)}\n********************************")
 
-    _test_tensor=torch.rand(4,5)*5+4
-    _normalized_tensor, _inv_f=normalize_th(_test_tensor, low=-2,high=16,scale=1.0,return_inverse_function=True)
-    print(f"test_tensor\n {_test_tensor}\nnormalized_tensor\n {_normalized_tensor}\n************")
-    _recons=_inv_f(_normalized_tensor)
-    print(f"inverse function correct? {torch.allclose(_test_tensor, _recons)}\n********************************")
+        _test_tensor=torch.rand(4,5)*5+4
+        _normalized_tensor, _inv_f=normalize_th(_test_tensor, low=-2,high=16,scale=1.0,return_inverse_function=True)
+        print(f"test_tensor\n {_test_tensor}\nnormalized_tensor\n {_normalized_tensor}\n************")
+        _recons=_inv_f(_normalized_tensor)
+        print(f"inverse function correct? {torch.allclose(_test_tensor, _recons)}\n********************************")
+   
+    plot_lr_schedule=True
+    if plot_lr_schedule:
 
 
+        _warmup_iters=200#a bit more than one epoch with the toy dataset and batchsize 32
+        _lr_decay_iters=15000#with the toy train dataset and batchsize 32, each epoch is made of 162 updates => The first and a half epoch are spent in warmup
+                             #say we have 100 epochs => 162000 updates => let's spend 15000 of those decaying
+        _learning_rate=1e-4
+        _min_lr=1e-5
+        plot_planned_scheduling(
+                _warmup_iters,
+                _lr_decay_iters,
+                _learning_rate,
+                _min_lr)
+
+   

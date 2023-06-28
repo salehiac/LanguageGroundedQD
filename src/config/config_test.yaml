@@ -16,20 +16,20 @@ input_normalization:
 train_cfg:
   data_path_train: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_train.pkl"
   data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_val.pkl"
-  max_epochs: 10 # total number of training iterations
+  max_epochs: 100 # total number of training iterations
   val_frequ: 3 #compute validation loss only every val_frequ iterations
   batch_size: 32
   adamW: 
-      learning_rate : 6e-4 # max learning rate
+      learning_rate : 1e-4 # max learning rate
       weight_decay : 1e-1
       beta1 : 0.9
       beta2 : 0.95
       grad_clip : 0.0 # clip gradients at this value, or disable if == 0.0
   schedule:
-    decay_lr : True # whether to decay the learning rate
-    lr_decay_steps : 600000 # should be ~= max_iters per Chinchilla
-    warmup_steps: 2000 # how many steps to warm up for
-    min_lr : 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
+    decay_lr : True 
+    lr_decay_steps : 15000 # after that number of steps (steps, not epochs), min_lr is used so that decay doesn't push the lr to 0
+    warmup_steps: 200 # how many steps to warm up for
+    min_lr : 1e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 test_cfg:
   data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_test.pkl"
   batch_size: 4
@@ -38,5 +38,5 @@ dtype: "float32"
 pretrained_model: ""
 deterministic: True
 logging: 
-  log_dir: "/Desktop/tmp_desktop/"
+  log_dir: "/home/achkan/Desktop/tmp_desktop/"
 

@@ -5,6 +5,7 @@ import numpy as np
 import random
 import functools
 import pdb
+import json
 import matplotlib.pyplot as plt
 
 import torch
@@ -31,7 +32,8 @@ def main_train(
     train and validation
     """
 
-
+    train_val_log_path=MiscUtils.create_directory_with_pid(log_dir+"/train_val_log_",remove_if_exists=True,no_pid=False)
+    print(colored(f"Created train_val log directory: {train_val_log_path}","magenta",attrs=["bold"]))
 
     learning_rate=float(cfg["adamW"]["learning_rate"])
     optimizer=model.configure_optimizers(
@@ -40,12 +42,15 @@ def main_train(
             (float(cfg["adamW"]["beta1"]),float(cfg["adamW"]["beta2"])),
             device_type=device.type)
 
-    num_train_steps=0
+    num_train_steps=0#steps, not epochs
     train_loss_hist=[]
     val_loss_hist=[]
+    best_val_loss_idx=-1
+    best_val_loss=float("inf")
     for epoch_i in tqdm.tqdm(range(cfg["max_epochs"]),desc="epochs"):
 
-
+        #print("NUM_TRAIN_STEPS==",num_train_steps)
+        
         ##training loop
         model.train()
         train_loss_epc=[]
@@ -82,13 +87,13 @@ def main_train(
             predicted_actions, loss=model(*processed_batch,generation_mode=False)
             loss.backward()
             optimizer.step()
+            num_train_steps+=1
 
             train_loss_epc.append(loss.item())
 
             if cfg["adamW"]["grad_clip"]!=0.0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), cfg["adamW"]["grad_clip"])
         train_loss_hist.append(np.mean(train_loss_epc))
-        num_train_steps+=1
 
  
         ##val loop (no hyperparam optimization here, the val loss is just used to chose a model at the end)
@@ -110,11 +115,18 @@ def main_train(
                     predicted_actions_val, loss_val=model(*processed_batch_val,generation_mode=False)
                     val_loss_epc.append(loss_val.item())
                 val_loss_epc_mean=np.mean(val_loss_epc)
+                if val_loss_epc_mean<best_val_loss:
+                    best_val_loss=val_loss_epc_mean
+                    best_val_loss_idx=epoch_i
+        
         #we still add the val_loss_epc_mean even epoch_i%val_frequ!=0. This is just for display, so that we get the same number of inputs to plt.plot as for train, without interpolation
         val_loss_hist.append(val_loss_epc_mean)
+        
+        torch.save(model,train_val_log_path+f"/model_{epoch_i}")
 
-        print(train_loss_hist)
-        print(val_loss_hist)
+        with open(train_val_log_path+f"/progress_info_{epoch_i}","w") as fl:
+            dd={"train_loss":train_loss_hist,"val_loss": val_loss_hist,"epoch_with_best_val_loss": best_val_loss_idx}
+            json.dump(dd,fl)
 
     plt.plot(train_loss_hist,"r")
     plt.plot(val_loss_hist,"b")
