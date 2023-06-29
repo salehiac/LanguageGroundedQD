@@ -101,3 +101,6 @@
   NOTE: check the number of params function from GPT, update it
   TODO: remove the asserts I've added in the model.py file to speed things up
 
+  TODO: fix the bug in all branches: timestamp_embedding=nn.Embedding(block size , config.n_embd) should be:
+            timestamp_embedding = nn.Embedding(1000, config.n_embd), #those are episode timesteps the 1000 here should be env.max_steps, TODO: don't hardcode that
+

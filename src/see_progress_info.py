@@ -15,7 +15,9 @@ if __name__=="__main__":
         start_at=int(sys.argv[2])
 
     print("train_loss:\n",progress_dict["train_loss"])
+    print("MIN train_loss:\n",min(progress_dict["train_loss"]))
     print("val_loss:\n",progress_dict["val_loss"])
+    print("MIN val_loss:\n",min(progress_dict["val_loss"]))
     plt.plot(progress_dict["train_loss"][start_at:],"r",label="train")
     plt.plot(progress_dict["val_loss"][start_at:],"b",label="validation")
     lr=progress_dict["lr"] if "lr" in progress_dict.keys() else "not logged"

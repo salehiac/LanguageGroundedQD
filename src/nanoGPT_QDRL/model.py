@@ -116,7 +116,7 @@ class RLMLP(torch.nn.Module):
         x=self.dropout(x)
         
         if self.scale_out_put!=-1:
-            x=torch.nn.functional.tanh(x)*self.scale_out_put
+            x=torch.tanh(x)*self.scale_out_put
 
         return x
 
@@ -280,7 +280,7 @@ class GPT_QDRL(nn.Module):
         self.transformer = nn.ModuleDict(dict(
             word_token_embedding = nn.Embedding(config.vocab_size, config.n_embd), 
             word_pos_embedding = nn.Embedding(config.block_size, config.n_embd), 
-            timestamp_embedding = nn.Embedding(config.block_size, config.n_embd), #there might be prompts without any text at all, so the timestamps embedding should cover the entire context
+            timestamp_embedding = nn.Embedding(1000, config.n_embd), #those are episode timesteps the 1000 here should be env.max_steps, TODO: don't hardcode that
             bd_embedding=RLMLP(config.n_bd_dims, config.n_embd),
             obs_embedding=RLMLP(config.n_obs_dims, config.n_embd),
             act_embedding=RLMLP(config.n_action_dims, config.n_embd),
@@ -290,7 +290,7 @@ class GPT_QDRL(nn.Module):
         ))
 
         #self.action_prediction_head=nn.Linear(config.n_embd,config.n_action_dims)
-        self.action_prediction_head=RLMLP(config.n_embd,config.n_action_dims,scale_out_put=10.0)#, dropout=config.dropout)
+        self.action_prediction_head=RLMLP(config.n_embd,config.n_action_dims,scale_out_put=-1)#, dropout=config.dropout)
 
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -383,7 +383,7 @@ class GPT_QDRL(nn.Module):
 
             #compute loss
             loss=((predicted_actions-act_tensor)**2).mean()#same as MSELoss with "mean" reduction
-            pdb.set_trace()
+            #pdb.set_trace()
         else:
             zz=xx[:,[obs_inds[-1]],:]
             predicted_actions=self.action_prediction_head(zz) #(B, 1, act_dims)
