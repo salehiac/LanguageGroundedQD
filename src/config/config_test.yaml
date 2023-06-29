@@ -1,6 +1,7 @@
 ---
 train_model: False #if False, a pretrained model should be provided.
-test_model: True  #
+test_model: False #
+deploy_in_env: True
 model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_XT7jMcHDYG/" 
   block_size: 402
@@ -33,6 +34,10 @@ train_cfg:
 test_cfg:
   data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_test.pkl"
   batch_size: 4
+deploy_cfg:
+  env_type: "navigation_env"
+  #the file should contain a List[List] prompt_lst, such that prompt_lst[i]=[textual_conditioning, bd_0, ..., bd_n] for n-dimensional bds
+  prompts: "/home/achkan/Desktop/tmp_desktop/prompt_file.json" 
 device: "cuda"
 dtype: "float32" 
 pretrained_model: "/home/achkan/Desktop/tmp_desktop/finished_experiments/train_val_log_20109/best_model/model_288"

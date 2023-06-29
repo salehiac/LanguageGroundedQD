@@ -9,6 +9,10 @@ import random
 from scoop import futures
 
 class Agent(ABC):
+    """
+    Baseclass for reactive policies stored in the Archive
+    TransformerBased Policies can be found in nanoGPT_QDRL/model.py
+    """
     @abstractmethod
     def get_flattened_weights(self):
         pass

@@ -194,25 +194,26 @@ if __name__=="__main__":
     torch.set_default_dtype(getattr(torch,_config["dtype"]))
     _device=torch.device("cpu") if not torch.cuda.is_available() else torch.device(_config["device"])
 
-    #load train/val/test archives and create datasets/dataloaders
-    _load_archs=lambda fn: (pickle.load(f:=open(fn,"rb")),f.close())[0]
-    _arch_train_path=_config["train_cfg"]["data_path_train"]
-    _arch_val_path=_config["train_cfg"]["data_path_val"]
-    _arch_test_path=_config["test_cfg"]["data_path"]
-    _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
+    if _config["train_model"] or _config["test_model"]:
+        #load train/val/test archives and create datasets/dataloaders
+        _load_archs=lambda fn: (pickle.load(f:=open(fn,"rb")),f.close())[0]
+        _arch_train_path=_config["train_cfg"]["data_path_train"]
+        _arch_val_path=_config["train_cfg"]["data_path_val"]
+        _arch_test_path=_config["test_cfg"]["data_path"]
+        _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
 
-    _cmd_dims=_arch_train[0]._tau["action"].shape[1]
-    _obs_dims=_arch_train[0]._tau["obs"].shape[1]
-    _bd_dims=_arch_train[0]._behavior_descr.shape[1]
+        _cmd_dims=_arch_train[0]._tau["action"].shape[1]
+        _obs_dims=_arch_train[0]._tau["obs"].shape[1]
+        _bd_dims=_arch_train[0]._behavior_descr.shape[1]
 
-    _train_dataset=ArchDataset(_arch_train,split="train")
-    _train_loader=_train_dataset.make_data_loader(batch_size=_config["train_cfg"]["batch_size"])
+        _train_dataset=ArchDataset(_arch_train,split="train")
+        _train_loader=_train_dataset.make_data_loader(batch_size=_config["train_cfg"]["batch_size"])
 
-    _val_dataset=ArchDataset(_arch_val,split="val")
-    _val_loader=_val_dataset.make_data_loader(batch_size=_config["train_cfg"]["batch_size"])
+        _val_dataset=ArchDataset(_arch_val,split="val")
+        _val_loader=_val_dataset.make_data_loader(batch_size=_config["train_cfg"]["batch_size"])
 
-    _test_dataset=ArchDataset(_arch_test,split="test")
-    _test_loader=_test_dataset.make_data_loader(batch_size=_config["test_cfg"]["batch_size"])
+        _test_dataset=ArchDataset(_arch_test,split="test")
+        _test_loader=_test_dataset.make_data_loader(batch_size=_config["test_cfg"]["batch_size"])
 
     #load tokenizer and create/load model
     _tokenizer=PreTrainedTokenizerFast.from_pretrained(_config["model_cfg"]["learned_tokenizer"])
@@ -238,6 +239,7 @@ if __name__=="__main__":
         _model.to(_device)
 
     _input_normalizer=None
+    _nav_env=None
     if any(_config["input_normalization"]["normalize"]):
         if _config["input_normalization"]["env_type"]=="navigation_env":
             from dataset_tools import make_navigation_env
@@ -269,6 +271,36 @@ if __name__=="__main__":
                 input_normalizer=_input_normalizer,
                 device=_device,
                 log_dir=_config["logging"]["log_dir"])
+
+    if _config["deploy_in_env"]:
+        if _config["deploy_cfg"]["env_type"]!="navigation_env":
+            raise NotImplementedError("Only available env is navigation_env")
+        if _nav_env is None:
+            from dataset_tools import make_navigation_env
+            _nav_env=make_navigation_env()
+
+        _load_prompts=lambda x: (json.load(fl:=open(x,"r")),fl.close())[0]
+        prompt_lst=_load_prompts(_config["deploy_cfg"]["prompts"])
+
+        policy=nanoGPT_QDRL.QDRLPolicy(
+                _model,
+                tokenizer=_tokenizer,
+                device=_device,
+                input_normalizer=_input_normalizer,
+                use_default_start=-1)
+
+        for prompt_i in range(len(prompt_lst)):
+            prompt=prompt_lst[prompt_i]
+            print(colored(f"generating trajectory for prompt {prompt_i}...","green",attrs=["bold"]))
+            policy.reset(prompt_text=prompt[0],
+                    prompt_bd=torch.tensor(prompt[1:1+_nav_env.get_bd_dims()]).reshape(1,2))
+
+            (fitness,
+                    tau_np,
+                    behavior2d_np,
+                    bd,
+                    task_solved
+                    )=_nav_env(policy)
  
     debug=False
     if debug:

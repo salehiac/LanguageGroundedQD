@@ -411,32 +411,93 @@ class GPT_QDRL(nn.Module):
 
         return optimizer
 
-    @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
-        """
-        [TODO]
-        Take a conditioning sequence of indices idx (LongTensor of shape (b,t)) and complete
-        the sequence max_new_tokens times, feeding the predictions back into the model each time.
-        Most likely you'll want to make sure to be in model.eval() mode of operation for this.
-        """
-        for _ in range(max_new_tokens):
-            # if the sequence context is growing too long we must crop it at block_size
-            idx_cond = idx if idx.size(1) <= self.config.block_size else idx[:, -self.config.block_size:]
-            # forward the model to get the logits for the index in the sequence
-            logits, _ = self(idx_cond)
-            # pluck the logits at the final step and scale by desired temperature
-            logits = logits[:, -1, :] / temperature
-            # optionally crop the logits to only the top k options
-            if top_k is not None:
-                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-                logits[logits < v[:, [-1]]] = -float('Inf')
-            # apply softmax to convert logits to (normalized) probabilities
-            probs = F.softmax(logits, dim=-1)
-            # sample from the distribution
-            idx_next = torch.multinomial(probs, num_samples=1)
-            # append sampled index to the running sequence and continue
-            idx = torch.cat((idx, idx_next), dim=1)
 
-        return idx
+class QDRLPolicy:
+
+    def __init__(self,
+            model:GPT_QDRL,
+            tokenizer,
+            device,
+            input_normalizer=None,
+            use_default_start=-1):
+        
+        self.model=model
+        self.tokenizer=tokenizer
+        self.device=device
+        self.input_normalizer=input_normalizer
+        self.use_default_start=use_default_start
+        self.traj_window=None
+        self.traj_start_timestamp=0
+    
+    def reset(self, prompt_text, prompt_bd):
+       
+        self.textual_conditioning=prompt_text
+        self.target_bd=prompt_bd
+        self.traj_window=None
+        self.traj_start_timestamp=0
+
+    @property
+    def cfg(self):
+        return self.model.config
+
+    @torch.no_grad()
+    def __call__(self,obs):
+        """
+        
+        Args 
+            obs (torch.tensor): shape (1, obs_dims)
+        Returns
+            action to perform in environment
+        Notes
+
+             This function should be optimized as it recomputes all embeddings each time it is called
+        """
+
+        self.model.eval()
+       
+        dummy_action=torch.zeros(1,self.cfg.n_action_dims)#padding for compatibility, it has no effect on the prediction
+        new_input=torch.cat([self.target_bd, torch.tensor(obs).reshape(1,-1), dummy_action],1).float()
+
+        self.traj_window=torch.cat([self.traj_window, new_input],0) if self.traj_window is not None else new_input # (LL, DD)
+
+        text_token_ids=self.tokenizer([self.textual_conditioning], padding=True, return_tensors="pt").input_ids
+        T_text=num_text_tokens=text_token_ids.shape[1]
+        assert self.cfg.block_size-T_text>10, "The textual prompt is too long. Double check your data, or increase the context length (see yaml config file)"
+        text_posional_ids=torch.arange(T_text,dtype=torch.long)
+
+        LL=self.traj_window.shape[0]
+        if T_text+3*LL>self.model.config.block_size:
+            num_drop=2
+            self.traj_window=self.traj_window[num_drop:,:]
+            LL-=num_drop
+            self.traj_start_timestamp+=num_drop
+
+        bd_tensor=self.traj_window[:,:self.cfg.n_bd_dims].unsqueeze(0)
+        obs_tensor=self.traj_window[:,self.cfg.n_bd_dims:self.cfg.n_bd_dims+self.cfg.n_obs_dims].unsqueeze(0)
+        act_tensor=self.traj_window[:,self.cfg.n_bd_dims+self.cfg.n_obs_dims:self.cfg.n_bd_dims+self.cfg.n_obs_dims+self.cfg.n_action_dims].unsqueeze(0)
+        traj_timestamps=torch.arange(self.traj_start_timestamp,self.traj_start_timestamp+LL)
+        
+
+        if self.input_normalizer is not None:
+            bd_tensor, obs_tensor, act_tensor=self.input_normalizer(
+                    bd_tensor=bd_tensor,
+                    obs_tensor=obs_tensor,
+                    act_tensor=act_tensor)
+        
+        #pdb.set_trace()
+        
+        predicted_actions, _ =self.model(
+                text_token_ids.to(self.device),
+                text_posional_ids.to(self.device),
+                bd_tensor.to(self.device),
+                obs_tensor.to(self.device),
+                act_tensor.to(self.device),
+                traj_timestamps.to(self.device),
+                generation_mode=True)
+
+        self.traj_window[-1,-2:]=predicted_actions
+
+        return predicted_actions.flatten().tolist()
+
 
 
