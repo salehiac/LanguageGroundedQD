@@ -100,19 +100,24 @@ class RLMLP(torch.nn.Module):
     and its c_fc is initialized differently because of that. I didn't want to change that behavior from the original repo
     """
 
-    def __init__(self, in_sz, emb_sz, dropout=0.0, bias=True):
+    def __init__(self, in_sz, emb_sz, dropout=0.0, bias=True, scale_out_put=-1):
         
         super().__init__()
         self.l1=torch.nn.Linear(in_sz, emb_sz, bias)
         self.nonlin=torch.nn.GELU()
         self.l2=torch.nn.Linear(emb_sz, emb_sz, bias)
         self.dropout=torch.nn.Dropout(dropout)
+        self.scale_out_put=scale_out_put
 
     def forward(self, x):
         x=self.l1(x)
         x=self.nonlin(x)
         x=self.l2(x)
         x=self.dropout(x)
+        
+        if self.scale_out_put!=-1:
+            x=torch.nn.functional.tanh(x)*self.scale_out_put
+
         return x
 
 class Block(nn.Module):
@@ -285,7 +290,7 @@ class GPT_QDRL(nn.Module):
         ))
 
         #self.action_prediction_head=nn.Linear(config.n_embd,config.n_action_dims)
-        self.action_prediction_head=RLMLP(config.n_embd,config.n_action_dims, dropout=config.dropout)
+        self.action_prediction_head=RLMLP(config.n_embd,config.n_action_dims,scale_out_put=10.0)#, dropout=config.dropout)
 
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -378,6 +383,7 @@ class GPT_QDRL(nn.Module):
 
             #compute loss
             loss=((predicted_actions-act_tensor)**2).mean()#same as MSELoss with "mean" reduction
+            pdb.set_trace()
         else:
             zz=xx[:,[obs_inds[-1]],:]
             predicted_actions=self.action_prediction_head(zz) #(B, 1, act_dims)

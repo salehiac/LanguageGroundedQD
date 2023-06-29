@@ -125,7 +125,7 @@ def main_train(
         torch.save(model,train_val_log_path+f"/model_{epoch_i}")
 
         with open(train_val_log_path+f"/progress_info_{epoch_i}","w") as fl:
-            dd={"train_loss":train_loss_hist,"val_loss": val_loss_hist,"epoch_with_best_val_loss": best_val_loss_idx}
+            dd={"train_loss":train_loss_hist,"val_loss": val_loss_hist,"epoch_with_best_val_loss": best_val_loss_idx,"lr":lr}
             json.dump(dd,fl)
 
     plt.plot(train_loss_hist,"r")

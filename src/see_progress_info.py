@@ -18,6 +18,8 @@ if __name__=="__main__":
     print("val_loss:\n",progress_dict["val_loss"])
     plt.plot(progress_dict["train_loss"][start_at:],"r",label="train")
     plt.plot(progress_dict["val_loss"][start_at:],"b",label="validation")
-    plt.title(f"epoch with best val loss={progress_dict['epoch_with_best_val_loss']}")
+    lr=progress_dict["lr"] if "lr" in progress_dict.keys() else "not logged"
+    plt.title(f"epoch with best val loss={progress_dict['epoch_with_best_val_loss']}, LR at cur epoch ={lr}")
     plt.legend(fontsize=16)
+    plt.grid("on")
     plt.show()
