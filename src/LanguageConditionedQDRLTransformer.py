@@ -301,6 +301,14 @@ if __name__=="__main__":
                     bd,
                     task_solved
                     )=_nav_env(policy)
+
+            dummy_cls = type('dummy_cls', (object,), {'_behavior': behavior2d_np})
+            _nav_env.visualise_behavior(dummy_cls,hold_on=True)
+            plt.title(prompt[0])
+            plt.show()
+
+
+
  
     debug=False
     if debug:

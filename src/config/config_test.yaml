@@ -27,7 +27,7 @@ train_cfg:
       beta2 : 0.95
       grad_clip : 0.0 # clip gradients at this value, or disable if == 0.0
   schedule:
-    decay_lr : True 
+    decay_lr: True
     lr_decay_steps : 15000 # after that number of steps (steps, not epochs), min_lr is used so that decay doesn't push the lr to 0
     warmup_steps: 200 # how many steps to warm up for
     min_lr : 1e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
