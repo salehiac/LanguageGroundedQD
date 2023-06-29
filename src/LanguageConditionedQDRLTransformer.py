@@ -132,10 +132,43 @@ def main_train(
     plt.plot(val_loss_hist,"b")
     plt.show()
 
+def main_test(
+        model,
+        test_loader,
+        cfg,
+        context_length,
+        input_dims,
+        tokenizer,
+        input_normalizer,
+        device,
+        log_dir):
+    """
+    test
+    """
 
+    test_log_path=MiscUtils.create_directory_with_pid(log_dir+"/test_log_",remove_if_exists=True,no_pid=False)
+    print(colored(f"Created test_log directory: {test_log_path}","magenta",attrs=["bold"]))
 
-def main_test(cfg,tokenizer,device,log_dir):
-    pass
+    model.eval()
+    with torch.no_grad():
+        test_loss=[]
+        for batch_test in tqdm.tqdm(test_loader,desc="test",leave=False):
+            processed_batch_test=nanoGPT_QDRL.process_batch(
+                    batch=batch_test,
+                    tokenizer=tokenizer, 
+                    context_size=context_length,
+                    bd_dims=input_dims["bd"],
+                    obs_dims=input_dims["obs"],
+                    act_dims=input_dims["act"],
+                    device=_device,
+                    input_normalizer=_input_normalizer)
+
+            predicted_actions_test, loss_test=model(*processed_batch_test,generation_mode=False)
+            test_loss.append(loss_test.item())
+
+        plt.plot(test_loss)
+        plt.title(np.mean(test_loss))
+        plt.show()
 
 
 if __name__=="__main__":
@@ -226,8 +259,17 @@ if __name__=="__main__":
                 device=_device,
                 log_dir=_config["logging"]["log_dir"])
     if _config["test_model"]:
-        _out_train=main_test(_config["test_cfg"],_tokenizer,_device,log_dir=_config["logging"]["log_dir"])
-
+        main_test(
+                model=_model,
+                test_loader=_test_loader,
+                cfg=_config["test_cfg"],
+                context_length=_config["model_cfg"]["block_size"],
+                input_dims={"bd":_bd_dims, "obs":_obs_dims, "act":_cmd_dims},
+                tokenizer=_tokenizer,
+                input_normalizer=_input_normalizer,
+                device=_device,
+                log_dir=_config["logging"]["log_dir"])
+ 
     debug=False
     if debug:
         _train_loader_it=iter(_train_loader)

@@ -1,5 +1,5 @@
 ---
-train_model: True #if False, a pretrained model should be provided.
+train_model: False #if False, a pretrained model should be provided.
 test_model: True  #
 model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_XT7jMcHDYG/" 
@@ -35,7 +35,7 @@ test_cfg:
   batch_size: 4
 device: "cuda"
 dtype: "float32" 
-pretrained_model: ""
+pretrained_model: "/home/achkan/Desktop/tmp_desktop/finished_experiments/train_val_log_20109/best_model/model_288"
 deterministic: True
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"
