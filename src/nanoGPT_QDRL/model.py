@@ -228,6 +228,7 @@ def process_batch(
     NN=batch[1].shape[1]//DD #episode length
     traj_batch=batch[1].reshape(BB,NN,DD).float() #traj_batch[ex_i,j,:] is bd_j, obs_j, act_j
 
+    assert NN-T_u//3+1<0, "context lenght should be long enough to include the full trajectory"
     possible_js=torch.arange(0,max(1,NN-T_u//3+1),dtype=torch.long)
     jj=torch.multinomial(torch.ones_like(possible_js).float()/possible_js.shape[0],1).item()
 
@@ -396,8 +397,8 @@ class GPT_QDRL(nn.Module):
 
             to_see=torch.cat([act_tensor,predicted_actions],-1)
             print(to_see)
-            if epoch%200==0 and epoch:
-                pdb.set_trace()
+            #if epoch%1000==0 and epoch:
+            #    pdb.set_trace()
         else:
             zz=xx[:,[obs_inds[-1]],:]
             predicted_actions=self.action_prediction_head(zz) #(B, 1, act_dims)

@@ -236,7 +236,7 @@ if __name__=="__main__":
         _arch_test_path=_config["test_cfg"]["data_path"]
         _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
 
-        _arch_train=_arch_train[:10]
+        _arch_train=_arch_train[:60]
         _arch_val=_arch_train
 
         _cmd_dims=_arch_train[0]._tau["action"].shape[1]
