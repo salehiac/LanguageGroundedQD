@@ -103,9 +103,10 @@ class RLMLP(torch.nn.Module):
     def __init__(self, in_sz, emb_sz, dropout=0.0, bias=True, scale_out_put=-1):
         
         super().__init__()
-        self.l1=torch.nn.Linear(in_sz, emb_sz, bias)
+        self.l1=torch.nn.Linear(in_sz, 2*emb_sz, bias)
+        self.l2=torch.nn.Linear(2*emb_sz, emb_sz, bias)
+        self.l3=torch.nn.Linear(emb_sz, emb_sz, bias)
         self.nonlin=torch.nn.GELU()
-        self.l2=torch.nn.Linear(emb_sz, emb_sz, bias)
         self.dropout=torch.nn.Dropout(dropout)
         self.scale_out_put=scale_out_put
 
@@ -113,6 +114,8 @@ class RLMLP(torch.nn.Module):
         x=self.l1(x)
         x=self.nonlin(x)
         x=self.l2(x)
+        x=self.nonlin(x)
+        x=self.l3(x)
         x=self.dropout(x)
         
         if self.scale_out_put!=-1:
@@ -208,11 +211,13 @@ def process_batch(
     """
 
     text_batch=batch[0]
-    text_token_ids=tokenizer(text_batch, padding=True, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
+    text_token_ids=tokenizer(text_batch, padding="max_length", max_length=262, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
+    #text_token_ids=tokenizer(text_batch, padding=True, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
     T_text=num_text_tokens=text_token_ids.shape[1]
     text_posional_ids=torch.arange(T_text,dtype=torch.long)
  
     T_u=context_size-T_text
+    #print(f"T_u=={T_u}")
 
    
     min_RL_timestamp=10#this is arbitrary and just for the assert
@@ -223,28 +228,30 @@ def process_batch(
     NN=batch[1].shape[1]//DD #episode length
     traj_batch=batch[1].reshape(BB,NN,DD).float() #traj_batch[ex_i,j,:] is bd_j, obs_j, act_j
 
-    possible_js=torch.arange(0,NN-T_u//3+1,dtype=torch.long)
+    possible_js=torch.arange(0,max(1,NN-T_u//3+1),dtype=torch.long)
     jj=torch.multinomial(torch.ones_like(possible_js).float()/possible_js.shape[0],1).item()
 
-    subsequence=traj_batch[:,jj:jj+T_u//3,:]
+
+    upper_bound=min(jj+T_u//3,traj_batch.shape[1])
+    subsequence=traj_batch[:,jj:upper_bound,:]
 
 
     bd_tensor=subsequence[:,:,:bd_dims]
     obs_tensor=subsequence[:,:,bd_dims:bd_dims+obs_dims]
     act_tensor=subsequence[:,:,bd_dims+obs_dims:bd_dims+obs_dims+act_dims]
-    subseq_timestamps=torch.arange(jj,jj+T_u//3)
+    subseq_timestamps=torch.arange(jj,upper_bound)
 
 
 
     #QDRLTokenWindow is just useful for debug and will be removed in subsequent updates
-    tw=QDRLTokenWindow.QDRLTokenWindow(subsequence.reshape(BB,-1),bd_dims,obs_dims,act_dims,jj)
-    bd_tensor_dbg=tw.get_bd_tensor()
-    obs_tensor_dbg=tw.get_obs_tensor()
-    act_tensor_dbg=tw.get_act_tensor()
-    assert (bd_tensor_dbg==bd_tensor).all()
-    assert (obs_tensor_dbg==obs_tensor).all()
-    assert (act_tensor==act_tensor_dbg).all()
-    assert (subseq_timestamps==tw.get_position_tensor()).all()
+    #tw=QDRLTokenWindow.QDRLTokenWindow(subsequence.reshape(BB,-1),bd_dims,obs_dims,act_dims,jj)
+    #bd_tensor_dbg=tw.get_bd_tensor()
+    #obs_tensor_dbg=tw.get_obs_tensor()
+    #act_tensor_dbg=tw.get_act_tensor()
+    #assert (bd_tensor_dbg==bd_tensor).all()
+    #assert (obs_tensor_dbg==obs_tensor).all()
+    #assert (act_tensor==act_tensor_dbg).all()
+    #assert (subseq_timestamps==tw.get_position_tensor()).all()
 
     #pdb.set_trace()
     
@@ -259,6 +266,8 @@ def process_batch(
                 bd_tensor=bd_tensor,
                 obs_tensor=obs_tensor,
                 act_tensor=act_tensor)
+    
+    #pdb.set_trace()
     
     return (text_token_ids.to(device),
             text_posional_ids.to(device),
@@ -322,7 +331,8 @@ class GPT_QDRL(nn.Module):
             obs_tensor,
             act_tensor,
             timestamp_tensor,
-            generation_mode:bool):
+            generation_mode:bool,
+            epoch:int=-1):
         """
         Args
             word_idx (torch.tensor): token indexes as returned by the tokenizer, shape (B, T_{text})
@@ -333,6 +343,7 @@ class GPT_QDRL(nn.Module):
             timestamp_tensor (torch.tensor): timestamps j, ..., {j+LL} corresponding to the subtrajectory
             generation_mode (bool): if True, indicates that we don't care about attention prediction except at the last layer. Note that this in general different from
                                     val/test mode, as we still often want to compute the loss at each step for those splits. It could be seen as a special case of test mode.
+            epoch (int): debug variable
         """
 
         BB=word_idx.shape[0]
@@ -364,9 +375,8 @@ class GPT_QDRL(nn.Module):
         #padding if necessary
         num_pad=self.config.block_size-xx.shape[1]
         padding_tensor=torch.zeros(BB,self.config.block_size-xx.shape[1],emb_sz).to(xx.device)
-        xx=torch.cat([xx, padding_tensor],1)
 
-        #pdb.set_trace()
+        xx=torch.cat([xx, padding_tensor],1)
 
         xx = self.transformer.drop(xx)
         for block in self.transformer.h:
@@ -383,7 +393,11 @@ class GPT_QDRL(nn.Module):
 
             #compute loss
             loss=((predicted_actions-act_tensor)**2).mean()#same as MSELoss with "mean" reduction
-            #pdb.set_trace()
+
+            to_see=torch.cat([act_tensor,predicted_actions],-1)
+            print(to_see)
+            if epoch%200==0 and epoch:
+                pdb.set_trace()
         else:
             zz=xx[:,[obs_inds[-1]],:]
             predicted_actions=self.action_prediction_head(zz) #(B, 1, act_dims)
@@ -465,6 +479,7 @@ class QDRLPolicy:
         new_input=torch.cat([self.target_bd, torch.tensor(obs).reshape(1,-1), dummy_action],1).float()
 
         self.traj_window=torch.cat([self.traj_window, new_input],0) if self.traj_window is not None else new_input # (LL, DD)
+
 
         text_token_ids=self.tokenizer([self.textual_conditioning], padding=True, return_tensors="pt").input_ids
         T_text=num_text_tokens=text_token_ids.shape[1]

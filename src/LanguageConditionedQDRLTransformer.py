@@ -47,7 +47,11 @@ def main_train(
     val_loss_hist=[]
     best_val_loss_idx=-1
     best_val_loss=float("inf")
-    for epoch_i in tqdm.tqdm(range(cfg["max_epochs"]),desc="epochs"):
+    tqdm_epoch=tqdm.tqdm(range(cfg["max_epochs"]),desc="epochs")
+
+    #train_loader_iter=iter(train_loader)
+    #pdb.set_trace()
+    for epoch_i in tqdm_epoch:
 
         #print("NUM_TRAIN_STEPS==",num_train_steps)
         
@@ -66,6 +70,11 @@ def main_train(
         for batch in tqdm.tqdm(train_loader,desc="epoch progress (train)",leave=False):
 
             optimizer.zero_grad()
+
+            if len(batch[0])<train_loader.batch_size:
+                batch=pad_batch(batch,train_loader.batch_size)
+
+            #pdb.set_trace()
             processed_batch=nanoGPT_QDRL.process_batch(
                     batch=batch,
                     tokenizer=tokenizer, 
@@ -84,7 +93,7 @@ def main_train(
             #        subseq_timestamps
             #        )=processed_batch
 
-            predicted_actions, loss=model(*processed_batch,generation_mode=False)
+            predicted_actions, loss=model(*processed_batch,generation_mode=False,epoch=epoch_i)
             loss.backward()
             optimizer.step()
             num_train_steps+=1
@@ -94,6 +103,7 @@ def main_train(
             if cfg["adamW"]["grad_clip"]!=0.0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), cfg["adamW"]["grad_clip"])
         train_loss_hist.append(np.mean(train_loss_epc))
+        tqdm_epoch.set_postfix({"epoch loss":train_loss_hist[-1],"LR":lr})
 
  
         ##val loop (no hyperparam optimization here, the val loss is just used to chose a model at the end)
@@ -102,6 +112,11 @@ def main_train(
                 model.eval()
                 val_loss_epc=[]
                 for batch_val in tqdm.tqdm(val_loader,desc="epoch progress (val)",leave=False):
+
+                    if len(batch_val[0])<val_loader.batch_size:
+                        batch_val=pad_batch(batch_val,val_loader.batch_size)
+
+
                     processed_batch_val=nanoGPT_QDRL.process_batch(
                         batch=batch_val,
                         tokenizer=tokenizer, 
@@ -121,8 +136,9 @@ def main_train(
         
         #we still add the val_loss_epc_mean even epoch_i%val_frequ!=0. This is just for display, so that we get the same number of inputs to plt.plot as for train, without interpolation
         val_loss_hist.append(val_loss_epc_mean)
-        
-        torch.save(model,train_val_log_path+f"/model_{epoch_i}")
+       
+        if best_val_loss_idx==epoch_i:
+            torch.save(model,train_val_log_path+f"/model_{epoch_i}")
 
         with open(train_val_log_path+f"/progress_info_{epoch_i}","w") as fl:
             dd={"train_loss":train_loss_hist,"val_loss": val_loss_hist,"epoch_with_best_val_loss": best_val_loss_idx,"lr":lr}
@@ -171,6 +187,23 @@ def main_test(
         plt.show()
 
 
+def pad_batch(batch, T):
+    """
+    if batch size is N<T, copy last element of batch to reach size T
+    """
+    N=len(batch[0])
+    assert N==batch[1].shape[0]
+
+    U=T-N
+    #pdb.set_trace()
+    b0=batch[0]+tuple([batch[0][-1]]*U)
+    b1=torch.cat([batch[1], batch[1][-1,:].repeat(U,1)],0)
+
+    return [b0, b1]
+
+
+
+
 if __name__=="__main__":
 
     _parser = argparse.ArgumentParser(description='Train/Test the mdoel.')
@@ -202,7 +235,7 @@ if __name__=="__main__":
         _arch_test_path=_config["test_cfg"]["data_path"]
         _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
 
-        _arch_train=_arch_train[:1]
+        _arch_train=_arch_train[:2]
         _arch_val=_arch_train
 
         _cmd_dims=_arch_train[0]._tau["action"].shape[1]

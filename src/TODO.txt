@@ -104,3 +104,6 @@
   TODO: fix the bug in all branches: timestamp_embedding=nn.Embedding(block size , config.n_embd) should be:
             timestamp_embedding = nn.Embedding(1000, config.n_embd), #those are episode timesteps the 1000 here should be env.max_steps, TODO: don't hardcode that
 
+  NOTE: the env is a POMPDP, so you can't just subsample subtrajectories without telling the model what the starting state is => quick hack: increase the block_size to be longer 
+        than episode length
+
