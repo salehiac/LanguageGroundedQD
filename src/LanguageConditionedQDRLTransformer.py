@@ -16,6 +16,7 @@ import tqdm
 import nanoGPT_QDRL
 from dataset_tools import ArchDataset
 import MiscUtils
+from environment import create_env_with_objects
 
 def main_train(
         model,
@@ -235,7 +236,7 @@ if __name__=="__main__":
         _arch_test_path=_config["test_cfg"]["data_path"]
         _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
 
-        _arch_train=_arch_train[:2]
+        _arch_train=_arch_train[:10]
         _arch_val=_arch_train
 
         _cmd_dims=_arch_train[0]._tau["action"].shape[1]
@@ -338,11 +339,15 @@ if __name__=="__main__":
                     task_solved
                     )=_nav_env(policy)
 
-            dummy_cls = type('dummy_cls', (object,), {'_behavior': behavior2d_np})
-            _nav_env.visualise_behavior(dummy_cls,hold_on=True)
-            plt.title(prompt[0])
-            plt.show()
 
+            scene = create_env_with_objects("./environment/")
+            fig,_=scene.display(display_bbox=False,
+                    hold_on=True,
+                    path2d_info=(behavior2d_np, 600, 600))
+
+            fig.suptitle(MiscUtils.add_newlines(prompt[0]))
+            plt.tight_layout()
+            plt.show()
 
 
  
