@@ -141,6 +141,8 @@ def main_train(
         if best_val_loss_idx==epoch_i:
             torch.save(model,train_val_log_path+f"/model_{epoch_i}")
 
+        torch.save(model,train_val_log_path+f"/last_model")
+
         with open(train_val_log_path+f"/progress_info_{epoch_i}","w") as fl:
             dd={"train_loss":train_loss_hist,"val_loss": val_loss_hist,"epoch_with_best_val_loss": best_val_loss_idx,"lr":lr}
             json.dump(dd,fl)
@@ -236,7 +238,7 @@ if __name__=="__main__":
         _arch_test_path=_config["test_cfg"]["data_path"]
         _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
 
-        _arch_train=_arch_train[:60]
+        _arch_train=_arch_train[:600]
         _arch_val=_arch_train
 
         _cmd_dims=_arch_train[0]._tau["action"].shape[1]
