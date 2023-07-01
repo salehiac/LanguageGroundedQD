@@ -166,10 +166,10 @@ if __name__=="__main__":
 
 
         _warmup_iters=200#a bit more than one epoch with the toy dataset and batchsize 32
-        _lr_decay_iters=15000#with the toy train dataset and batchsize 32, each epoch is made of 162 updates => The first and a half epoch are spent in warmup
+        _lr_decay_iters=76000#with the toy train dataset and batchsize 32, each epoch is made of 162 updates => The first and a half epoch are spent in warmup
                              #say we have 100 epochs => 162000 updates => let's spend 15000 of those decaying
-        _learning_rate=1e-4
-        _min_lr=1e-5
+        _learning_rate=5e-3
+        _min_lr=5e-5
         plot_planned_scheduling(
                 _warmup_iters,
                 _lr_decay_iters,

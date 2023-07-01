@@ -268,11 +268,10 @@ def process_batch(
                 obs_tensor=obs_tensor,
                 act_tensor=act_tensor)
     
-    #pdb.set_trace()
     
     return (text_token_ids.to(device),
             text_posional_ids.to(device),
-            bd_tensor.to(device),
+            bd_tensor.to(device).round(decimals=1),#no need for more precision
             obs_tensor.to(device),
             act_tensor.to(device),
             subseq_timestamps.to(device),
@@ -393,9 +392,11 @@ class GPT_QDRL(nn.Module):
             predicted_actions=self.action_prediction_head(zz)#(B, LL, act_dims)
 
             #compute loss
-            loss=((predicted_actions-act_tensor)**2).mean()#same as MSELoss with "mean" reduction
+            loss=((predicted_actions-act_tensor.round(decimals=1))**2).mean()#same as MSELoss with "mean" reduction
 
-            to_see=torch.cat([act_tensor,predicted_actions],-1)
+            #pdb.set_trace()
+
+            to_see=torch.cat([act_tensor.round(decimals=1),predicted_actions],-1)
             print(to_see)
             #if epoch%1000==0 and epoch:
             #    pdb.set_trace()

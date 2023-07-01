@@ -21,32 +21,29 @@ train_cfg:
   val_frequ: 3 #compute validation loss only every val_frequ iterations
   batch_size: 16
   adamW: 
-      learning_rate : 5e-5 # max learning rate
+      learning_rate : 5e-3 # max learning rate
       weight_decay : 1e-1
       beta1 : 0.9
       beta2 : 0.95
       grad_clip : 0.0 # clip gradients at this value, or disable if == 0.0
   schedule:
-    decay_lr: False 
-    lr_decay_steps : 15000 # after that number of steps (steps, not epochs), min_lr is used so that decay doesn't push the lr to 0
+    decay_lr: True
+    lr_decay_steps : 76000 # current value is the equivalent of 2000 epochs assuming 38 updates per epoch 
     warmup_steps: 200 # how many steps to warm up for
-    min_lr : 1e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
+    min_lr : 5e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 test_cfg:
   data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_test.pkl"
   batch_size: 4
 deploy_cfg:
   env_type: "navigation_env"
   #the file should contain a List[List] prompt_lst, such that prompt_lst[i]=[textual_conditioning, bd_0, ..., bd_n] for n-dimensional bds
-  prompts: "/home/achkan/Desktop/tmp_desktop/prompt_file.json" 
+  #prompts: "/home/achkan/Desktop/tmp_desktop/prompt_file.json" 
+  #prompts: "/tmp/logdir/prompt_file_test.json" 
+  prompts: "/tmp/logdir/prompt_file_test.json" 
 device: "cuda"
 dtype: "float32" 
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/finished_experiments/train_val_log_20109/best_model/model_288"
 #pretrained_model: ""
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_147496/last_model" #lr=5e-3, its training was continued with half the lr, resulting in the model on the next line
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_158575/model_189" #lr=1e-3, pretrained from previous line
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_160154/model_126" #lr=5e-4, pretrained on previous line
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_164421/model_261" #lr=1e-4, pretrained on previous line
-pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_171031/model_69" #lr=5e-5, pretrained on previous line
+pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_180274/model_1146" #lr=5e-5, pretrained on previous line
 deterministic: True
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"

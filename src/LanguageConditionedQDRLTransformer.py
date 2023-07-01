@@ -52,9 +52,19 @@ def main_train(
 
     #train_loader_iter=iter(train_loader)
     #pdb.set_trace()
+
+    if cfg["schedule"]["decay_lr"]:
+        MiscUtils.plot_planned_scheduling(
+                cfg["schedule"]["warmup_steps"],
+                cfg["schedule"]["lr_decay_steps"],
+                learning_rate,
+                min_lr=float(cfg["schedule"]["min_lr"])) 
+
+
     for epoch_i in tqdm_epoch:
 
         #print("NUM_TRAIN_STEPS==",num_train_steps)
+        #pdb.set_trace()
         
         ##training loop
         model.train()
@@ -64,6 +74,7 @@ def main_train(
                 lr_decay_iters=cfg["schedule"]["lr_decay_steps"],
                 learning_rate=learning_rate,
                 min_lr=float(cfg["schedule"]["min_lr"])) if cfg["schedule"]["decay_lr"] else learning_rate
+
  
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
@@ -239,7 +250,7 @@ if __name__=="__main__":
         _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
 
         _arch_train=_arch_train[:600]
-        _arch_val=_arch_train
+        #_arch_val=_arch_train
 
         _cmd_dims=_arch_train[0]._tau["action"].shape[1]
         _obs_dims=_arch_train[0]._tau["obs"].shape[1]

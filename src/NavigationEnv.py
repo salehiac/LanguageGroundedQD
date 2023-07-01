@@ -78,7 +78,7 @@ class NavigationEnv:
             if dbg:
                 assert torch.allclose(bd_tensor, inv_f(normalized_bds))
         else:
-            normalized_bds=bd_tensor
+            normalized_bds=bd_tensor.round(1)
 
         if options["obs"]:
             #the three first obs are between [0,100]
@@ -119,7 +119,7 @@ class NavigationEnv:
                 time.sleep(0.01)
             
             action=ag(obs)
-            #action=[np.round(x,1) for x in action]
+            action=action.round(1) if isinstance(action, np.ndarray) else [np.round(x,1) for x in action] 
             action=action.flatten().tolist() if isinstance(action, np.ndarray) else action
             tau.append({"obs":obs,"action":action})
             obs, reward, ended, info=self.env.step(action)

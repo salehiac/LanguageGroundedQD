@@ -98,6 +98,9 @@ def generate_paper_dataset(logs_root="/tmp/"):
 
 def verify_repeatability_individual(ag):
     """
+    ATTENTION: behavior will not be consistent under this definition as we're roundig to 1 decimal now, which means the bds etc will be off by a tiny bit
+    TODO: incorporate that rounding into the function or something. Anyway, this was a debug function initially designed to see if the toy env which
+    was based on libfastsim was determinitics, and it was, so maybe just remove this function altogether?
     return True if the policy's info is repeatable
     """
 
@@ -111,11 +114,12 @@ def verify_repeatability_individual(ag):
     ]
 
     def check_equality(xx,yy):
-        if isinstance(xx,np.ndarray):
+        if isinstance(xx,np.ndarray):#for behavior and behavior descriptors
+            print(xx-yy)
             return (xx==yy).all()
-        if isinstance(xx,float) or isinstance(xx,bool):
+        if isinstance(xx,float) or isinstance(xx,bool):#for fitness and task_solved
             return xx==yy
-        if isinstance(xx,dict):
+        if isinstance(xx,dict):#for tau, i.e. the obs-action traj
             aa=(xx["obs"]==yy["obs"]).all()
             bb=(xx["action"]==yy["action"]).all()
             return aa and bb
@@ -240,6 +244,14 @@ if __name__ == "__main__":
             type=float,
             help="splits archive into train/val/test splits. The three input values should be normalized percentages. For example, values of [0.9, 0.05, 0.05] will keep 90%, 5%, 5% of the data as respectively train, val and test splits. The results are saved to --out_dir"
             )
+
+
+    _parser.add_argument(
+            '--export_as_prompt_list',
+            action="store_true",
+            help="saves llm description and bds in json format in --out_dir"
+            )
+
 
 
 
@@ -463,6 +475,12 @@ if __name__ == "__main__":
             dump_arch(_train_arch, out_f_train, msg=colored(f"wrote train archive to {out_f_train}","cyan",attrs=["bold"]))
             dump_arch(_val_arch, out_f_val, msg=colored(f"wrote val archive to {out_f_val}","cyan",attrs=["bold"]))
             dump_arch(_test_arch, out_f_test, msg=colored(f"wrote test archive to {out_f_test}","cyan",attrs=["bold"]))
+
+        if _args.export_as_prompt_list:
+
+            _pl=[[xx._llm_descr, np.round(xx._behavior_descr[0,0],1), np.round(xx._behavior_descr[0,1],1)] for xx in _in_arch]
+            with open(f"{_args.out_dir}/prompt_file.json","w") as fl:
+                json.dump(_pl,fl)
 
 
 
