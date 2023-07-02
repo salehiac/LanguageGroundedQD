@@ -1,10 +1,10 @@
 ---
-train_model: False #if False, a pretrained model should be provided.
+train_model: True #if False, a pretrained model should be provided.
 test_model: False #
 deploy_in_env: True 
 model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_XT7jMcHDYG/" 
-  block_size: 2000 #In the current dataset, the max token length is about 270. 
+  block_size: 1700 #In the current dataset, the max token length is about 270, and the toy env's episode length is 400 (=>1200 tokens), so block_size needs only be larger than 1670
   n_layer: 2
   n_head: 4
   n_embd:  200 # don't forget that those will be divided between the heads, so if the embedding is of size 40 and you have 4 heads, it's 10 featurs for each which is sort of riddiculous
@@ -17,9 +17,9 @@ input_normalization:
 train_cfg:
   data_path_train: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_train.pkl"
   data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_val.pkl"
-  max_epochs: 4000 # total number of training iterations
-  val_frequ: 3 #compute validation loss only every val_frequ iterations
-  batch_size: 16
+  max_epochs: 5000 # total number of training iterations
+  val_frequ: 5 #compute validation loss only every val_frequ iterations
+  batch_size: 28
   adamW: 
       learning_rate : 5e-3 # max learning rate
       weight_decay : 1e-1
@@ -28,8 +28,9 @@ train_cfg:
       grad_clip : 0.0 # clip gradients at this value, or disable if == 0.0
   schedule:
     decay_lr: True
-    lr_decay_steps : 76000 # current value is the equivalent of 2000 epochs assuming 38 updates per epoch 
-    warmup_steps: 200 # how many steps to warm up for
+    #lr_decay_steps : 76000 # current value is the equivalent of 2000 epochs assuming 38 updates per epoch 
+    lr_decay_steps : 372000 # current value is the equivalent of 2000 epochs assuming 186 updates per epoch
+    warmup_steps: 400 # how many steps to warm up for
     min_lr : 5e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 test_cfg:
   data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/described_archive_full_test.pkl"
@@ -42,8 +43,8 @@ deploy_cfg:
   prompts: "/tmp/logdir/prompt_file_test.json" 
 device: "cuda"
 dtype: "float32" 
-#pretrained_model: ""
-pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_180274/model_1146" #lr=5e-5, pretrained on previous line
+pretrained_model: ""
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_180274/model_1146" #lr=5e-5, pretrained on previous line
 deterministic: True
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"

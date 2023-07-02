@@ -111,8 +111,9 @@ def plot_planned_scheduling(
         warmup_iters,
         lr_decay_iters,
         learning_rate,
-        min_lr):
-    mm=[get_lr(_it,warmup_iters,lr_decay_iters,learning_rate,min_lr) for _it in range(100000)]
+        min_lr,
+        max_plot_range=100000):
+    mm=[get_lr(_it,warmup_iters,lr_decay_iters,learning_rate,min_lr) for _it in range(max_plot_range)]
     plt.plot(mm)
     plt.title("warmup + cosine annealing (no restarts)")
     plt.show()

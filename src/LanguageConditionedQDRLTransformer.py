@@ -58,7 +58,8 @@ def main_train(
                 cfg["schedule"]["warmup_steps"],
                 cfg["schedule"]["lr_decay_steps"],
                 learning_rate,
-                min_lr=float(cfg["schedule"]["min_lr"])) 
+                min_lr=float(cfg["schedule"]["min_lr"]),
+                max_plot_range=cfg["schedule"]["lr_decay_steps"]+10000) 
 
 
     for epoch_i in tqdm_epoch:
@@ -249,7 +250,7 @@ if __name__=="__main__":
         _arch_test_path=_config["test_cfg"]["data_path"]
         _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
 
-        _arch_train=_arch_train[:600]
+        #_arch_train=_arch_train[:600]
         #_arch_val=_arch_train
 
         _cmd_dims=_arch_train[0]._tau["action"].shape[1]
