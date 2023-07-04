@@ -252,6 +252,21 @@ if __name__ == "__main__":
             help="saves llm description and bds in json format in --out_dir"
             )
 
+    _parser.add_argument(
+            '--filter_bds',
+            metavar="x",
+            nargs=4, #the four arguments should be min_x, max_x, min_y, max_y
+            type=float,
+            help="removes behavior descriptors that fall outside at least one of the specified range from the archive"
+            )
+
+    _parser.add_argument(
+            '--merge_archives',
+            metavar="x",
+            nargs=2, #path to two archives to merge 
+            type=str,
+            help="the tow archives are concatenated and then shuffled"
+            )
 
 
 
@@ -326,6 +341,11 @@ if __name__ == "__main__":
                     print(colored(f"adding description to agent {ag_i}.","green",attrs=["bold"]))
                     with open(in_fns[ag_i],"r") as fl:
                         descr_string=json.load(fl)["descr"]
+
+                    if "<DESCRIPTOR>" in descr_string:
+                        descr_string=descr_string.replace("<DESCRIPTOR>",f"x={int(_in_arch[ag_i]._behavior_descr.round(0)[0,0])}, y={int(_in_arch[ag_i]._behavior_descr.round(0)[0,1])}")
+                    if "file_cabinet" in descr_string:
+                        descr_string=descr_string.replace("file_cabinet","file cabinet")
                     _in_arch[ag_i]._llm_descr=descr_string
                 else:
                     pass
@@ -406,32 +426,37 @@ if __name__ == "__main__":
            _dd["obs dims"]=_in_arch[0]._tau["obs"].shape[1]
            _dd["bd dims"]=_in_arch[0]._behavior_descr.shape[1]
 
-           from tokenizers import pre_tokenizers
-           pre_tok=pre_tokenizers.Whitespace()
-
-           word_lst=[]
-           for _ag in _in_arch:
-               word_lst+=[x[0] for x in pre_tok.pre_tokenize_str(_ag._llm_descr.lower())]
-           word_lst_unique=list(set(word_lst))
-
-           _dd["num unique words (pretokens)"]=len(word_lst_unique)
-
-           cnt=Counter(word_lst)
-           zz=sorted([(k,v) for k,v in cnt.items()],key=lambda x: x[1],reverse=True) 
            _thresh=3
-           _dd[f"num pretokens appearing more than {_thresh} times"]=len([x for x in zz if x[1]>_thresh])
+           if not False in mm:
+               from tokenizers import pre_tokenizers
+               pre_tok=pre_tokenizers.Whitespace()
 
-           
+               word_lst=[]
+               for _ag in _in_arch:
+                   word_lst+=[x[0] for x in pre_tok.pre_tokenize_str(_ag._llm_descr.lower())]
+               word_lst_unique=list(set(word_lst))
+
+               _dd["num unique words (pretokens)"]=len(word_lst_unique)
+
+               cnt=Counter(word_lst)
+               zz=sorted([(k,v) for k,v in cnt.items()],key=lambda x: x[1],reverse=True) 
+               _dd[f"num pretokens appearing more than {_thresh} times"]=len([x for x in zz if x[1]>_thresh])
+
+               
+
+               import warnings
+               warnings.filterwarnings("ignore")
+               word_dict = dict(zz)
+               wordcloud = WordCloud(width = 1000, height = 500).generate_from_frequencies(word_dict)
+               wc_path='/tmp/wordcloud.png'
+               wordcloud.to_file(wc_path)
+               print(colored(f"word cloud saved to {wc_path}","cyan",attrs=["bold"]))
+           else:
+               _dd["num unique words (pretokens)"]="N.A"
+               _dd[f"num pretokens appearing more than {_thresh} times"]="N.A"
+            
            _pp = pprint.PrettyPrinter(indent=4,sort_dicts=False)
            _pp.pprint(_dd)
-
-           import warnings
-           warnings.filterwarnings("ignore")
-           word_dict = dict(zz)
-           wordcloud = WordCloud(width = 1000, height = 500).generate_from_frequencies(word_dict)
-           wc_path='/tmp/wordcloud.png'
-           wordcloud.to_file(wc_path)
-           print(colored(f"word cloud saved to {wc_path}","cyan",attrs=["bold"]))
 
 
         if _args.fix_duplicates:
@@ -481,6 +506,43 @@ if __name__ == "__main__":
             _pl=[[xx._llm_descr, np.round(xx._behavior_descr[0,0],1), np.round(xx._behavior_descr[0,1],1)] for xx in _in_arch]
             with open(f"{_args.out_dir}/prompt_file.json","w") as fl:
                 json.dump(_pl,fl)
+
+        if _args.filter_bds:
+
+            _min_x=_args.filter_bds[0]
+            _max_x=_args.filter_bds[1]
+
+            _min_y=_args.filter_bds[2]
+            _max_y=_args.filter_bds[3]
+
+            _arch_filtered=[x for x in _in_arch if (x._behavior_descr[0,0]>_min_x and x._behavior_descr[0,0]<_max_x) or (x._behavior_descr[0,1]>_min_y and x._behavior_descr[0,1]<_max_y) ]
+
+            with open(f"{_args.out_dir}/filtered_archive.pkl","wb") as fl:
+                pickle.dump(_arch_filtered,fl)
+
+
+    if _args.merge_archives:
+
+        
+        with open(_args.merge_archives[0], "rb") as fl:
+            _in_arch_0 = pickle.load(fl)
+        with open(_args.merge_archives[1], "rb") as fl:
+            _in_arch_1 = pickle.load(fl)
+
+        _arch=_in_arch_0+_in_arch_1
+        np.random.shuffle(_arch) 
+
+        _out_n=f"{_args.out_dir}/merged_archive.pkl"
+        print(f"saving archive to {_out_n}...")
+        with open(_out_n,"wb") as fl:
+            pickle.dump(_arch, fl)
+
+
+
+
+
+
+
 
 
 

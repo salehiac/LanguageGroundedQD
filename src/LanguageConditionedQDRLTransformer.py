@@ -59,7 +59,7 @@ def main_train(
                 cfg["schedule"]["lr_decay_steps"],
                 learning_rate,
                 min_lr=float(cfg["schedule"]["min_lr"]),
-                max_plot_range=cfg["schedule"]["lr_decay_steps"]+10000) 
+                max_plot_range=cfg["schedule"]["lr_decay_steps"]+30000) 
 
 
     for epoch_i in tqdm_epoch:
@@ -271,6 +271,12 @@ if __name__=="__main__":
     if _config["pretrained_model"]:
 
         _model=torch.load(_config["pretrained_model"])
+
+        _err_msg="model info does not match config file."
+        assert _model.config.block_size==_config["model_cfg"]["block_size"], _err_msg
+        assert _model.config.n_head==_config["model_cfg"]["n_head"], _err_msg
+        assert _model.config.n_embd==_config["model_cfg"]["n_embd"], _err_msg
+        assert _model.config.n_layer==_config["model_cfg"]["n_layer"], _err_msg
 
     else:
         _gpt_cfg=nanoGPT_QDRL.GPT_QDRLConfig(

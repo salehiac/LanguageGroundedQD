@@ -160,7 +160,8 @@ def process_batch(
         obs_dims,
         act_dims,
         device,
-        input_normalizer=None):
+        input_normalizer=None,
+        max_len_pad=226):
     """
     Args: 
         batch (list): a list of length 2, with
@@ -211,7 +212,7 @@ def process_batch(
     """
 
     text_batch=batch[0]
-    text_token_ids=tokenizer(text_batch, padding="max_length", max_length=262, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
+    text_token_ids=tokenizer(text_batch, padding="max_length", max_length=max_len_pad, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
     #text_token_ids=tokenizer(text_batch, padding=True, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
     T_text=num_text_tokens=text_token_ids.shape[1]
     text_posional_ids=torch.arange(T_text,dtype=torch.long)
@@ -228,7 +229,7 @@ def process_batch(
     NN=batch[1].shape[1]//DD #episode length
     traj_batch=batch[1].reshape(BB,NN,DD).float() #traj_batch[ex_i,j,:] is bd_j, obs_j, act_j
 
-    assert NN-T_u//3+1<0, "context lenght should be long enough to include the full trajectory"
+    assert NN-T_u//3+1<=0, f"context lenght should be long enough to include the full trajectory (NN={NN}, T_u={T_u}, block_size={context_size}, T_text={T_text}"
     possible_js=torch.arange(0,max(1,NN-T_u//3+1),dtype=torch.long)
     jj=torch.multinomial(torch.ones_like(possible_js).float()/possible_js.shape[0],1).item()
 
