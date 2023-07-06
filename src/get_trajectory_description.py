@@ -7,12 +7,38 @@ import os
 import pdb
 import re
 from collections import namedtuple
+import numpy as np
 
 openai.api_key="ADD YOUR KEY HERE"
 
+def generate_description_request(traj_info:dict):
+
+        prompt="""Let us consider a square of size 200x200. The origin is fixed at the bottom left corner, and the x,y axes are respectively horizontal and vertical (with x looking towards
+        the right, i.e. east, and y looking upwards, i.e. north). Let us define a python dictionary to represent point that have been sampled from a 2d trajectory in that square. 
+        The dictionary will have the following keys: dict_keys(['timestep', 'pos', 'semantics', 'colors']). Here is the explanation for each: 1) The complete trajectories are
+        composed of N points, and each has a timestep t_i (with i ranging from 0 to N-1).  The 'timestep' key corresponds to the t_i of the sampled point. 2) the 'pos' key is for
+        the 2d position of the point, expressed as (x,y) in the coordinate frame defined above. 3) The square actually represents a room, where there are several objects. 
+        The 'semantics' gives information about objects to which the points are close (name of objects, and agent position w.r.t those, e.g. to the east of the cactus. Note that east,
+        west, north, south directions are relative to objects, not relative to the agent. Also, east=right, west=left, north=up, south=down). 4) The room which is represented
+        by the 200x200 square also has tiles of different colors in different areas. The 'colors' key gives information about the tile 
+        color where the 2d point is. Your task is to ask an algorithm to generate an agent capable of going throught the given trajectory. An example of such a request could be 'Can you make a
+        policy that is able to go near the A, then to the east of the B, before goint to C and then stoping near D?', where A, B, C, D are extractred from the python dictionary descrbied above.
+        Another example coule be 'Hi! My name is <insert_human_name_here>! I want you to make a network that can go from the fridge to A?' or 'Can you generate a trajectroy from A to B that goes through C?'. Any 
+        combination of objects and tile colors is acceptable in your request as long as it matches the trajectory described in the python dict. You can also arbitrarily replace the last
+        position/object/tile at the end of the trajectory with '<DESCRIPTOR>' if you want.
+        Please do NOT use any numerical values such as coordinates. The trajectory will be given after the tag [TRAJECTORY], and I want you to write
+        your request after [REQ]."""
+
+        prompt=prompt+"\n"+f"[TRAJECTORY] {traj_info} \n\n [REQ]"
+
+
+        return prompt
+
+
+
 def generate_description_narrative(traj_info:dict):
 
-        prompt="""Let us consider a square of size 200x200. The origin is fixed at the bottom left corner, and the x,y axes are respectively horizontal and vertical (with x looking towards the right, i.e. east, and y looking upwards, i.e. north). Let us define a python dictionary to represent point that have been sampled from a 2d trajectory in that square. The dictionary will have the following keys: dict_keys(['timestep', 'pos', 'semantics', 'colors']). Here is the explanation for each: 1) The complete trajectories are composed of N points, and each has a timestep t_i (with i ranging from 0 to N-1).  The 'timestep' key corresponds to the t_i of the sampled point. 2) the 'pos' key is for the 2d position of the point, expressed as (x,y) in the coordinate frame defined above. 3) The square actually represents a room, where there are several objects such as a fridge, a chair, a cactus and so on. The 'semantics' gives information on objects to which the point are close (name of objects, and where the agent is situated w.r.t those objects, e.g. to the east or north of the cactus, etc). 4) The room which is represented by the 200x200 square also has tiles of different colors in different areas. The 'colors' key gives information about the tile color where the 2d point is. Your task is to describe such trajectories with text, without any numerical values. Note that if there is no significant motion during the entire trajectory, it is acceptable to give a very concise description such as 'stay near the starting point'. The trajectory will be given after the tag [TRAJECTORY], and I want you to write the description after [DESCR]."""
+        prompt="""Let us consider a square of size 200x200. The origin is fixed at the bottom left corner, and the x,y axes are respectively horizontal and vertical (with x looking towards the right, i.e. east, and y looking upwards, i.e. north). Let us define a python dictionary to represent point that have been sampled from a 2d trajectory in that square. The dictionary will have the following keys: dict_keys(['timestep', 'pos', 'semantics', 'colors']). Here is the explanation for each: 1) The complete trajectories are composed of N points, and each has a timestep t_i (with i ranging from 0 to N-1).  The 'timestep' key corresponds to the t_i of the sampled point. 2) the 'pos' key is for the 2d position of the point, expressed as (x,y) in the coordinate frame defined above. 3) The square actually represents a room, where there are several objects such as a fridge, a chair, a cactus and so on. The 'semantics' gives information on objects to which the point are close (name of objects, and where the agent is situated w.r.t those objects, e.g. to the east or north of the cactus, etc). 4) The room which is represented by the 200x200 square also has tiles of different colors in different areas. The 'colors' key gives information about the tile color where the 2d point is. Your task is to describe such trajectories with text, without any numerical values. Please try to be concise. REMEMBER: make short descriptions! The trajectory will be given after the tag [TRAJECTORY], and I want you to write the description after [DESCR]."""
 
         prompt=prompt+"\n"+f"[TRAJECTORY] {traj_info} \n\n [DESCR]"
 
@@ -95,7 +121,21 @@ def fetch_description(in_dir,outdir,start_idx,end_idx,gpt3_mode=True):
 
         traj_lst=dumb_down_traj_for_gpt3(traj_lst) if gpt3_mode else traj_lst 
         round_pos_info(traj_lst)
-        prompt=generate_description(traj_info=traj_lst)
+
+        rand_val=np.random.rand()
+        if rand_val<=0.86:
+            print("request style descr")
+            prompt=generate_description_request(traj_info=traj_lst)
+        elif rand_val>0.86 and rand_val<=0.93:
+            print("instructional style descr")
+            prompt=generate_description(traj_info=traj_lst)
+        else:
+            print("narrative style descr")
+            prompt=generate_description_narrative(traj_info=traj_lst)
+
+        #prompt=generate_description(traj_info=traj_lst)
+        #prompt=generate_description_narrative(traj_info=traj_lst)
+        #prompt=generate_description_request(traj_info=traj_lst)
 
         #print(prompt)
 
@@ -103,7 +143,7 @@ def fetch_description(in_dir,outdir,start_idx,end_idx,gpt3_mode=True):
                 model="text-davinci-003",
                 prompt=prompt,
                 max_tokens=1000,
-                temperature=0.6)
+                temperature=0.3)
 
         with open(fns_sorted[ii].out_fn,"w") as fl:
             resp_d={"descr":response["choices"][0]["text"]}
@@ -143,15 +183,15 @@ if __name__=="__main__":
 
     if test_read_annotations:
 
-        _outdir=sys.argv[2]
+        _outdir="/home/achkan/Desktop//description_out/"
         ###note: - up to 2890 (inclusive) have been generated with few-shot prompting (generate_description_few_shot function) and without rounding the pos
         ###      - from 2891 to 3000 have been generated with zero-shot (generate_description) and with rounding (so the price should be lower)
         ###        Interestingly, those examples result in narrative descriptions, while the previous one became instructinal (well, the example was instructional)
         ###        Interestingly, those examples result in narrative descriptions, while the previous one became instructinal (well, the example was instructional)
         ###      - from 3001 to 3027, they also are given the requirement to be instructional
         ###      - from 3028 to 3050, they also are given the requirement to be CONCISE
-        _start_idx=4418#not annotated yet (exceeded quota...)
-        _end_idx=6000
+        _start_idx=3285#not annotated yet (exceeded quota...)
+        _end_idx=3671
         
         fetch_description(sys.argv[1],outdir=_outdir,start_idx=_start_idx,end_idx=_end_idx)
 

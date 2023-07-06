@@ -25,7 +25,15 @@ if __name__=="__main__":
     lr=progress_dict["lr"] if "lr" in progress_dict.keys() else "not logged"
     plt.title(f"epoch with best val loss={progress_dict['epoch_with_best_val_loss']}, LR at cur epoch ={np.round(lr,6)})")
     #plt.title(f"min train_loss={min(progress_dict['train_loss'])}\n min val_loss={min(progress_dict['val_loss'])}")
-    plt.legend(fontsize=16)
+    plt.ylim([0, max(max(progress_dict["train_loss"][start_at:]),max(progress_dict["val_loss"][start_at:]))])
+    if len(sys.argv)>3:
+        plt.xlim([0,int(sys.argv[3])])
+        plt.hlines(0.01,0,int(sys.argv[3]),"m",linestyle="dashdot")
+        plt.hlines(0.03,0,int(sys.argv[3]),"m",linestyle="dashdot")
+    plt.hlines(min(progress_dict["train_loss"][start_at:]),0,int(sys.argv[3]),"r",linestyle="--")
+    plt.hlines(min(progress_dict["val_loss"][start_at:]),0,int(sys.argv[3]),"b",linestyle="--")
+
     plt.tight_layout()
+    plt.legend(fontsize=16)
     plt.grid("on")
     plt.show()
