@@ -338,6 +338,7 @@ if __name__=="__main__":
 
         _load_prompts=lambda x: (json.load(fl:=open(x,"r")),fl.close())[0]
         prompt_lst=_load_prompts(_config["deploy_cfg"]["prompts"])
+        np.random.shuffle(prompt_lst)
 
         policy=nanoGPT_QDRL.QDRLPolicy(
                 _model,
@@ -349,8 +350,10 @@ if __name__=="__main__":
         for prompt_i in range(len(prompt_lst)):
             prompt=prompt_lst[prompt_i]
             print(colored(f"generating trajectory for prompt {prompt_i}...","green",attrs=["bold"]))
-            policy.reset(prompt_text=prompt[0],
-                    prompt_bd=torch.tensor(prompt[1:1+_nav_env.get_bd_dims()]).reshape(1,2))
+
+            bds_lst=prompt[1:1+_nav_env.get_bd_dims()]
+            policy.reset(prompt_text="",#prompt[0],
+                    prompt_bd=torch.tensor(bds_lst).reshape(1,2))
 
             (fitness,
                     tau_np,
@@ -365,9 +368,19 @@ if __name__=="__main__":
                     hold_on=True,
                     path2d_info=(behavior2d_np, 600, 600))
 
-            fig.suptitle(MiscUtils.add_newlines(prompt[0]))
+            _annotation = scene.annotate_traj(
+            behavior2d_np, real_w=600, real_h=600, step=40)
+
+            print("================================")
+            print(_annotation)
+            fig.suptitle(MiscUtils.add_newlines(prompt[0]+f"\n BDs={[x//3 for x in bds_lst]}"))
             plt.tight_layout()
             plt.show()
+
+            pdb.set_trace()
+
+
+
 
 
  
