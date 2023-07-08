@@ -1,9 +1,11 @@
 ---
-train_model: False #if False, a pretrained model should be provided.
+train_model: True #if False, a pretrained model should be provided.
 test_model: False #
 deploy_in_env: True 
 model_cfg: 
-  learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_9u3C06vqcJ"
+  #learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_MFmKNfYil3/"
+  #NOTE: we're gonna use the tokenizer trained on the dataset1+2 merge, otherwise vocab size is different => impossible to finetune
+  learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_9u3C06vqcJ/"
   block_size: 1435 #In the current dataset, the max token length is 226, and the toy env's episode length is 400 (=>1200 tokens), so block_size needs only be larger than 1426.
   n_layer: 2
   n_head: 4
@@ -21,15 +23,15 @@ train_cfg:
   val_frequ: 5 #compute validation loss only every val_frequ iterations
   batch_size: 40
   adamW: 
-      learning_rate : 5e-3 # max learning rate
+      learning_rate : 1e-3 # max learning rate
       weight_decay : 1e-1
       beta1 : 0.9
       beta2 : 0.95
       grad_clip : 0.0 # clip gradients at this value, or disable if == 0.0
   schedule:
     decay_lr: True 
-    #lr_decay_steps : 76000 # current value is the equivalent of 2000 epochs assuming 38 updates per epoch 
-    lr_decay_steps : 777000 # current value is the equivalent of 3500 epochs assuming 222 updates per epoch 
+    #lr_decay_steps : 777000 # current value is the equivalent of 3500 epochs assuming 222 updates per epoch, 
+    lr_decay_steps : 777500 # this one is for fine-tuning a network, so... yeah, around 2500 epochs with 311 updates per epoch
     warmup_steps: 400 # how many steps to warm up for
     min_lr : 5e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 test_cfg:
@@ -38,8 +40,7 @@ test_cfg:
 deploy_cfg:
   env_type: "navigation_env"
   #the file should contain a List[List] prompt_lst, such that prompt_lst[i]=[textual_conditioning, bd_0, ..., bd_n] for n-dimensional bds
-  #prompts: "/home/achkan/Desktop/tmp_desktop/prompt_file.json" 
-  #prompts: "/tmp/logdir/prompt_file_train.json" 
+  #use --export_as_prompt_list from data_tools.py
   prompts: "/tmp/logdir/prompt_file_test.json" 
 device: "cuda"
 dtype: "float32" 

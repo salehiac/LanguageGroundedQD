@@ -66,9 +66,10 @@ def learn_tokenizer_for_archive(arch, min_frequ=3,save_to=""):
 def get_max_sequence_len(data:List[str], wrapped_tokenizer:PreTrainedTokenizerFast):
 
     zz=_wrapped_tok(data,padding=False).input_ids
+    lens=[len(x) for x in zz]
     uu=np.max([len(x) for x in zz])
 
-    return uu
+    return uu, lens
 
     
 
@@ -95,7 +96,17 @@ if __name__=="__main__":
 
     if _args.arch_tokenization_info:
         dd={}
-        dd["maximum sequence length (#tokens)"]=get_max_sequence_len([x._llm_descr for x in _arch], wrapped_tokenizer=_wrapped_tok)
+        dd["maximum sequence length (#tokens)"], _lens=get_max_sequence_len([x._llm_descr for x in _arch], wrapped_tokenizer=_wrapped_tok)
         print(dd)
+
+    if 1:
+        _thresh=226
+        for ii in range(len(_arch)):
+           cur_text=_arch[ii]._llm_descr
+           zz=_wrapped_tok(cur_text, padding=False).input_ids
+           if len(zz)>_thresh:
+               print(ii)
+
+
 
 
