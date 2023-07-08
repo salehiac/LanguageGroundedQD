@@ -22,11 +22,14 @@ def generate_description_request(traj_info:dict):
         west, north, south directions are relative to objects, not relative to the agent. Also, east=right, west=left, north=up, south=down). 4) The room which is represented
         by the 200x200 square also has tiles of different colors in different areas. The 'colors' key gives information about the tile 
         color where the 2d point is. Your task is to ask an algorithm to generate an agent capable of going throught the given trajectory. An example of such a request could be 'Can you make a
-        policy that is able to go near the A, then to the east of the B, before goint to C and then stoping near D?', where A, B, C, D are extractred from the python dictionary descrbied above.
-        Another example coule be 'Hi! My name is <insert_human_name_here>! I want you to make a network that can go from the fridge to A?' or 'Can you generate a trajectroy from A to B that goes through C?'. Any 
-        combination of objects and tile colors is acceptable in your request as long as it matches the trajectory described in the python dict. You can also arbitrarily replace the last
-        position/object/tile at the end of the trajectory with '<DESCRIPTOR>' if you want.
-        Please do NOT use any numerical values such as coordinates. The trajectory will be given after the tag [TRAJECTORY], and I want you to write
+        policy that is able to go near the A, then to the east of the B, before goint to C and then stoping near D?', where A, B, C, D are extractred from the python dictionary described above (you
+        should never use those letters without replacing them with relevant info from the dict).
+        Another example coule be 'Hi! My name is <insert_human_name_here>! I want you to make a network that can go from the fridge to A?' or 'Can you generate a trajectroy from A to B that 
+        goes through C?'. Any combination of objects and tile colors is acceptable in your request as long as it matches the trajectory described in the python dict. You can also arbitrarily
+        replace the last position/object/tile at the end of the trajectory with '<DESCRIPTOR>' if you want.
+        NOTE: you must NEVER mention the python dictionary in the description. For example, 'Can you generate a policy that is able to follow the trajectory described in the given python
+        dictionary?' is unacceptable. 
+        Please do NOT use any numerical values such as coordinates, and do NOT use timestep values, at all. The trajectory will be given after the tag [TRAJECTORY], and I want you to write
         your request after [REQ]."""
 
         prompt=prompt+"\n"+f"[TRAJECTORY] {traj_info} \n\n [REQ]"
@@ -38,7 +41,7 @@ def generate_description_request(traj_info:dict):
 
 def generate_description_narrative(traj_info:dict):
 
-        prompt="""Let us consider a square of size 200x200. The origin is fixed at the bottom left corner, and the x,y axes are respectively horizontal and vertical (with x looking towards the right, i.e. east, and y looking upwards, i.e. north). Let us define a python dictionary to represent point that have been sampled from a 2d trajectory in that square. The dictionary will have the following keys: dict_keys(['timestep', 'pos', 'semantics', 'colors']). Here is the explanation for each: 1) The complete trajectories are composed of N points, and each has a timestep t_i (with i ranging from 0 to N-1).  The 'timestep' key corresponds to the t_i of the sampled point. 2) the 'pos' key is for the 2d position of the point, expressed as (x,y) in the coordinate frame defined above. 3) The square actually represents a room, where there are several objects such as a fridge, a chair, a cactus and so on. The 'semantics' gives information on objects to which the point are close (name of objects, and where the agent is situated w.r.t those objects, e.g. to the east or north of the cactus, etc). 4) The room which is represented by the 200x200 square also has tiles of different colors in different areas. The 'colors' key gives information about the tile color where the 2d point is. Your task is to describe such trajectories with text, without any numerical values. Please try to be concise. REMEMBER: make short descriptions! The trajectory will be given after the tag [TRAJECTORY], and I want you to write the description after [DESCR]."""
+        prompt="""Let us consider a square of size 200x200. The origin is fixed at the bottom left corner, and the x,y axes are respectively horizontal and vertical (with x looking towards the right, i.e. east, and y looking upwards, i.e. north). Let us define a python dictionary to represent point that have been sampled from a 2d trajectory in that square. The dictionary will have the following keys: dict_keys(['timestep', 'pos', 'semantics', 'colors']). Here is the explanation for each: 1) The complete trajectories are composed of N points, and each has a timestep t_i (with i ranging from 0 to N-1).  The 'timestep' key corresponds to the t_i of the sampled point. 2) the 'pos' key is for the 2d position of the point, expressed as (x,y) in the coordinate frame defined above. 3) The square actually represents a room, where there are several objects such as a fridge, a chair, a cactus and so on. The 'semantics' gives information on objects to which the point are close (name of objects, and where the agent is situated w.r.t those objects, e.g. to the east or north of the cactus, etc). 4) The room which is represented by the 200x200 square also has tiles of different colors in different areas. The 'colors' key gives information about the tile color where the 2d point is. Your task is to describe such trajectories with text, without any numerical values. So , NO coordinates, No timestep values. Please try to be concise. REMEMBER: make short descriptions! The trajectory will be given after the tag [TRAJECTORY], and I want you to write the description after [DESCR]."""
 
         prompt=prompt+"\n"+f"[TRAJECTORY] {traj_info} \n\n [DESCR]"
 
@@ -123,10 +126,10 @@ def fetch_description(in_dir,outdir,start_idx,end_idx,gpt3_mode=True):
         round_pos_info(traj_lst)
 
         rand_val=np.random.rand()
-        if rand_val<=0.86:
+        if rand_val<=0.8:
             print("request style descr")
             prompt=generate_description_request(traj_info=traj_lst)
-        elif rand_val>0.86 and rand_val<=0.93:
+        elif rand_val>0.8 and rand_val<=0.9:
             print("instructional style descr")
             prompt=generate_description(traj_info=traj_lst)
         else:
@@ -139,59 +142,52 @@ def fetch_description(in_dir,outdir,start_idx,end_idx,gpt3_mode=True):
 
         #print(prompt)
 
-        response = openai.Completion.create(
-                model="text-davinci-003",
-                prompt=prompt,
-                max_tokens=1000,
-                temperature=0.3)
+        #response = openai.Completion.create(
+        #        model="text-davinci-003",
+        #        prompt=prompt,
+        #        max_tokens=1000,
+        #        temperature=0.3)
+
+        while True:
+            try:
+                response=openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "user", "content": f"{prompt}"}],
+                        temperature=0.2)
+                break
+
+            except Exception as e:
+                print(f"An error occurred: {e}. Retrying with index {ii}...")
+
 
         with open(fns_sorted[ii].out_fn,"w") as fl:
-            resp_d={"descr":response["choices"][0]["text"]}
+            #davinci
+            #resp_d={"descr":response["choices"][0]["text"]}
+            #gpt-3.x
+            resp_d={"descr":response["choices"][0]["message"]["content"]}
             json.dump(resp_d,fl)
+
+        print(response["choices"][0]["message"]["content"])
     
     return True
 
 if __name__=="__main__":
 
 
-    test_get_single_traj_descr=False
-    #test_get_single_traj_descr=True
-
-    test_read_annotations=True
-    #test_read_annotations=False
+    id_lst=[
+            2227,
+            ]
 
 
-    if test_get_single_traj_descr:
-        with open(sys.argv[1],"r") as fl:
-            _traj_lst=json.load(fl)
-   
-        _traj_lst=dumb_down_traj_for_gpt3(_traj_lst)
-        #_traj_lst_before=copy.deepcopy(_traj_lst)
-        round_pos_info(_traj_lst)
-        _prompt=generate_description(traj_info=_traj_lst)
+    for the_idx in id_lst:
 
-        print("PROMPT:\n",_prompt)
-
-        response = openai.Completion.create(
-                model="text-davinci-003",
-                #prompt=generate_description(traj_info=_traj_lst),
-                prompt=_prompt,
-                max_tokens=1000,
-                temperature=0.6)
-
-        print("RESPONSE\n",response["choices"][0]["text"])
-
-    if test_read_annotations:
-
-        _outdir="/home/achkan/Desktop//description_out/"
-        ###note: - up to 2890 (inclusive) have been generated with few-shot prompting (generate_description_few_shot function) and without rounding the pos
-        ###      - from 2891 to 3000 have been generated with zero-shot (generate_description) and with rounding (so the price should be lower)
-        ###        Interestingly, those examples result in narrative descriptions, while the previous one became instructinal (well, the example was instructional)
-        ###        Interestingly, those examples result in narrative descriptions, while the previous one became instructinal (well, the example was instructional)
-        ###      - from 3001 to 3027, they also are given the requirement to be instructional
-        ###      - from 3028 to 3050, they also are given the requirement to be CONCISE
-        _start_idx=3285#not annotated yet (exceeded quota...)
-        _end_idx=3671
+        _outdir="/home/achkan/Desktop/train_data_3/"
+        print("IDX==",the_idx)
+        _start_idx=the_idx
+        _end_idx=_start_idx+1
+        #_end_idx=3922
         
         fetch_description(sys.argv[1],outdir=_outdir,start_idx=_start_idx,end_idx=_end_idx)
 
