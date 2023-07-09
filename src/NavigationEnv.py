@@ -66,11 +66,10 @@ class NavigationEnv:
         else:
             return gym.spaces.box.Box(low=0,high=600,shape=(2,))
     
-    def normalize_bd_obs_act(self, 
+    def normalize_bd_obs(self, 
             options:dict,
             bd_tensor:torch.tensor,
             obs_tensor:torch.tensor,
-            act_tensor:torch.tensor,
             dbg:bool):
 
         if options["bds"]:
@@ -97,12 +96,7 @@ class NavigationEnv:
         else:
             normalized_obs=obs_tensor
 
-        if options["act"]:
-            raise Exception("action normalization is not available. Is it a good idea? If so, feel free too implement it.")
-        else:
-            normalized_acts=act_tensor
-
-        return normalized_bds, normalized_obs, normalized_acts
+        return normalized_bds, normalized_obs
 
 
     def __call__(self, ag):

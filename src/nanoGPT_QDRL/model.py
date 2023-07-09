@@ -7,13 +7,12 @@ import inspect
 from collections import namedtuple
 from typing import Literal, List
 import pdb
+import numpy as np
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from termcolor import colored
-
-import nanoGPT_QDRL.QDRLTokenWindow as QDRLTokenWindow
 
 class LayerNorm(nn.Module):
     """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
@@ -149,6 +148,7 @@ GPT_QDRLConfig=namedtuple("GPT_QDRLConfig",[
     "n_action_dims",#added for QD-RL
     "n_obs_dims",#added for QD-RL
     "n_bd_dims",#added for QD-RL
+    "kmeans_obj",
     ])
 
    
@@ -160,14 +160,15 @@ def process_batch(
         obs_dims,
         act_dims,
         device,
+        kmeans,
         input_normalizer=None,
         max_len_pad=226):
     """
     Args: 
-        batch (list): a list of length 2, with
-                                        - batch[0] a list of batch_size strings
-                                        - batch[1] a tensor of shape batch_size*M, with M=ep_len*(bd_dims+obs_dims+act_dims)
-                                         each example batch[ex,:] is a 1D tensor that semantically can be separated into
+        batch (list): a list of length 3, with
+                        - batch[0] a list of batch_size strings
+                        - batch[1] a tensor of shape batch_size*M, with M=ep_len*(bd_dims+obs_dims+act_dims). Note that actions in this tensor are offsets relative to a cluster center
+                          each example batch[ex,:] is a 1D tensor that semantically can be separated into
                                         [ bd_0, obs_0, act_0,
                                           bd_1, obs_1, act_1,
                                           ...
@@ -176,20 +177,26 @@ def process_batch(
                                                                           #there are a total of 3N tokens in each trajectory
 
                                         with bd_i, obs_i, act_i respectively of lengths bd_dims, obs_dims and act_dims.
+                        - batch[2] a tensor of shape batch_size*ep_len*1, which gives the cluster center idx for each action.
         
         tokenizer (PreTrainedTokenizerFast): A tokenizer pretrained on the corpus
         context_size (int): the context size of the transformer
         bd_dims (int): length of behavior descriptors
         obs_dims (int): length of observations vector
         act_dims (int): length of action vector
+        kmeans (Mkeans): object encapsulating cluster center ids and their coordinates
 
     Returns:
+        (See the notes section below for the defintion of T_u.)
 
         text_token_ids (torch.LongTensor): shape batch_size*T_text, with T_text the number of tokkens after padding to the token length of the longest string in the batch.
         text_posional_ids (torch.LongTensor): 1d tensor of shape T_text, to compute positional embeddings.
-        bd_tensor (torch.tensor): shape batch_size*T_u*bd_dims. See the notes section below for the defintion of T_u.
-        obs_tensor (torch.tensor): shape batch_size*T_u*obs_dims. See the notes section below for the defintion of T_u.
-        act_tensor (torch.tensor): shape batch_size*T_u*act_dims. See the notes section below for the defintion of T_u.
+        bd_tensor (torch.tensor): shape batch_size*T_u*bd_dims. 
+        obs_tensor (torch.tensor): shape batch_size*T_u*obs_dims. 
+        act_tensor (torch.tensor): shape batch_size*T_u*act_dims. Those actions are the same as cluster_coord+offset.
+        act_tensor_cluster_id (torch.tensor): shape batch_size*T_u. Gives the cluster id that corresponds to an action. Useful for supervision.
+        act_tensor_cluster_center_offsets (torch.tensor): shape batch_size*T_u. Gives the offset between the action and the cluster center. Useful for supervision without going through the kmeans
+                                                          object again
         subseq_timestamps (torch.LongTensor): 1d tensor of shape T_u. See the notes section below for the defintion of T_u.
     Notes:
         - The context length of the attention blocks is smaller than the full number of tokens (3N) in the trajectory. Let's note
@@ -238,25 +245,23 @@ def process_batch(
     subsequence=traj_batch[:,jj:upper_bound,:]
 
 
+    cluster_centers_ids=batch[2][:,jj:upper_bound,:]
+    cluster_center_coords=torch.Tensor(kmeans.cluster_centers_[cluster_centers_ids.squeeze(-1),:])
+
+    dbg=True
+    if dbg:
+        zzz=[]
+        for iii in range(BB):
+            zzz.append(np.expand_dims(kmeans.cluster_centers_[batch[2][:,jj:upper_bound,:].squeeze(-1)[iii],:],0))
+        zzz=torch.Tensor(np.concatenate(zzz,0))
+        assert (cluster_center_coords==zzz).all(), "bug"
+
+
     bd_tensor=subsequence[:,:,:bd_dims]
     obs_tensor=subsequence[:,:,bd_dims:bd_dims+obs_dims]
-    act_tensor=subsequence[:,:,bd_dims+obs_dims:bd_dims+obs_dims+act_dims]
+    act_tensor=subsequence[:,:,bd_dims+obs_dims:bd_dims+obs_dims+act_dims] + cluster_center_coords
     subseq_timestamps=torch.arange(jj,upper_bound)
 
-
-
-    #QDRLTokenWindow is just useful for debug and will be removed in subsequent updates
-    #tw=QDRLTokenWindow.QDRLTokenWindow(subsequence.reshape(BB,-1),bd_dims,obs_dims,act_dims,jj)
-    #bd_tensor_dbg=tw.get_bd_tensor()
-    #obs_tensor_dbg=tw.get_obs_tensor()
-    #act_tensor_dbg=tw.get_act_tensor()
-    #assert (bd_tensor_dbg==bd_tensor).all()
-    #assert (obs_tensor_dbg==obs_tensor).all()
-    #assert (act_tensor==act_tensor_dbg).all()
-    #assert (subseq_timestamps==tw.get_position_tensor()).all()
-
-    #pdb.set_trace()
-    
     dbg=False
     if dbg:
         print(colored(f"[DBG] context_size={context_size}, T_text={T_text}, T_u={T_u}","red",attrs=["bold"]))
@@ -264,17 +269,17 @@ def process_batch(
         #print(batch[0])
 
     if input_normalizer is not None:
-        bd_tensor, obs_tensor, act_tensor=input_normalizer(
+        bd_tensor, obs_tensor=input_normalizer(
                 bd_tensor=bd_tensor,
-                obs_tensor=obs_tensor,
-                act_tensor=act_tensor)
-    
-    
+                obs_tensor=obs_tensor)
+
     return (text_token_ids.to(device),
             text_posional_ids.to(device),
             bd_tensor.to(device).round(decimals=1),#no need for more precision
             obs_tensor.to(device),
-            act_tensor.to(device),
+            act_tensor.to(device),#given as model input
+            cluster_centers_ids.long().to(device),#useful for supervision
+            cluster_center_coords.to(device),#useful for supervision
             subseq_timestamps.to(device),
             )
 
@@ -299,8 +304,8 @@ class GPT_QDRL(nn.Module):
             ln_f = LayerNorm(config.n_embd, bias=config.bias),
         ))
 
-        #self.action_prediction_head=nn.Linear(config.n_embd,config.n_action_dims)
-        self.action_prediction_head=RLMLP(config.n_embd,config.n_action_dims,scale_out_put=-1)#, dropout=config.dropout)
+        self.action_prediction_head_cluster_ids=RLMLP(config.n_embd,config.kmeans_obj.cluster_centers_.shape[0],scale_out_put=-1)
+        self.action_prediction_head_offsets=RLMLP(config.n_embd,config.kmeans_obj.cluster_centers_.shape[0]*config.n_action_dims,scale_out_put=-1)
 
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -331,9 +336,12 @@ class GPT_QDRL(nn.Module):
             bd_tensor,
             obs_tensor,
             act_tensor,
+            cluster_centers_ids,#useful for supervision
+            cluster_center_coords,#useful for supervision
             timestamp_tensor,
             generation_mode:bool,
-            epoch:int=-1):
+            epoch:int=-1,
+            loss_type:str="multimodal_0"):
         """
         Args
             word_idx (torch.tensor): token indexes as returned by the tokenizer, shape (B, T_{text})
@@ -345,6 +353,7 @@ class GPT_QDRL(nn.Module):
             generation_mode (bool): if True, indicates that we don't care about attention prediction except at the last layer. Note that this in general different from
                                     val/test mode, as we still often want to compute the loss at each step for those splits. It could be seen as a special case of test mode.
             epoch (int): debug variable
+            loss_type (str): only "multimodal_0" is available. MSS was completely stupid for this problem and was removed
         """
 
         BB=word_idx.shape[0]
@@ -389,24 +398,65 @@ class GPT_QDRL(nn.Module):
         obs_inds=torch.arange(word_token_emb.shape[1]+1,self.config.block_size-num_pad,step=3).to(xx.device)
 
         if not generation_mode:
+
+
             zz=xx[:,obs_inds,:]
-            predicted_actions=self.action_prediction_head(zz)#(B, LL, act_dims)
+            
+            if loss_type=="multimodal_0":
+                predicted_actions_proba=torch.softmax(self.action_prediction_head_cluster_ids(zz),
+                        dim=-1)#(BB, LL, num_clusters)
+                predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,
+                        LL,
+                        self.config.kmeans_obj.cluster_centers_.shape[0],-1)#(BB, LL, num_clusters, act_dims)
 
-            #compute loss
-            loss=((predicted_actions-act_tensor.round(decimals=1))**2).mean()#same as MSELoss with "mean" reduction
+                #crossentropy loss between predicted cluster probabilities and ground truth cluster ids
+                cel=torch.nn.CrossEntropyLoss()
+                term_1=cel(predicted_actions_proba.transpose(1,2), cluster_centers_ids.squeeze(-1))
 
-            #pdb.set_trace()
+                #Now fetch predicted offset for ground truth cluster ids and minimize their MSE
+                UU=predicted_actions_offsets # (BB, LL, num_clusters, act_dims)
+                VV=cluster_centers_ids.unsqueeze(-1) # (BB, LL, 1, 1)
 
-            to_see=torch.cat([act_tensor.round(decimals=1),predicted_actions],-1)
-            print(to_see)
+                #We want a tensor WW of shape (BB, LL, 1, act_dims), such that WW[i,j,k,l]=UU[i,j, VV[i,j,k,l], l]. Note that this limits the range of k to [0, VV.shape[2]] and similarly 
+                #for l which is limited to [0, VV.shape[3]). This is what we want for k, but not for l (as we want act_dims outputs per selected cluster. Therefore, we need to replicate
+                #VV along its last axis
+                WW=UU.gather(2, VV.expand(-1,-1,-1,self.config.n_action_dims))
+                
+                predicted_actions=cluster_center_coords+WW.squeeze(2)
+                term_2=((predicted_actions-act_tensor.round(decimals=1))**2).mean()#same as MSELoss with "mean" reduction
+
+                loss=term_1+term_2
+
+                term_1_value=term_1.item()
+                term_2_value=term_2.item()
+
+            else:
+                raise Exception("Unknown loss type")
             #if epoch%1000==0 and epoch:
             #    pdb.set_trace()
         else:
-            zz=xx[:,[obs_inds[-1]],:]
-            predicted_actions=self.action_prediction_head(zz) #(B, 1, act_dims)
             loss=None
+            term_1_value=None
+            term_2_value=None
+            zz=xx[:,[obs_inds[-1]],:]
 
-        return predicted_actions, loss
+            predicted_actions_proba=torch.softmax(self.action_prediction_head_cluster_ids(zz),
+                    dim=-1)#(BB, LL, num_clusters)
+
+            sampled_act=torch.multinomial(predicted_actions_proba.reshape(-1,kmeans_obj.cluster_centers_.shape[0]))
+            sampled_act=sampled_act.reshape(BB,LL,1)
+            
+            predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,
+                    LL,
+                    self.config.kmeans_obj.cluster_centers_.shape[0],-1)#(BB, LL, num_clusters, act_dims)
+
+            UU=predicted_actions_offsets
+            VV=sampled_act.unsqueeze(-1) # (BB, LL, 1, 1)
+            WW=UU.gather(2, VV.expand(-1,-1,-1,self.config.n_action_dims))
+                
+            predicted_actions=cluster_center_coords+WW.squeeze(2)
+
+        return predicted_actions, loss, term_1_value, term_2_value
 
     def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
         # start with all of the candidate parameters
@@ -508,7 +558,8 @@ class QDRLPolicy:
                     obs_tensor=obs_tensor,
                     act_tensor=act_tensor)
         
-        #pdb.set_trace()
+        
+        pdb.set_trace()
         
         predicted_actions, _ =self.model(
                 text_token_ids.to(self.device),
@@ -516,6 +567,8 @@ class QDRLPolicy:
                 bd_tensor.to(self.device),
                 obs_tensor.to(self.device),
                 act_tensor.to(self.device),
+                cluster_centers_ids,#useful for supervision
+                cluster_center_coords,#useful for supervision
                 traj_timestamps.to(self.device),
                 generation_mode=True)
 

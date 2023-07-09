@@ -1,11 +1,10 @@
 ---
-train_model: True #if False, a pretrained model should be provided.
+train_model: True#if False, a pretrained model should be provided.
 test_model: False #
 deploy_in_env: True 
 model_cfg: 
-  #learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_MFmKNfYil3/"
-  #NOTE: we're gonna use the tokenizer trained on the dataset1+2 merge, otherwise vocab size is different => impossible to finetune
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_9u3C06vqcJ/"
+  kmeans:  "/tmp/cluster_centers.pkl"
   block_size: 1435 #In the current dataset, the max token length is 226, and the toy env's episode length is 400 (=>1200 tokens), so block_size needs only be larger than 1426.
   n_layer: 2
   n_head: 4
@@ -13,17 +12,18 @@ model_cfg:
   bias: 0 #the original nanoGPT code says that turning it off produces better results
   dropout_p: 0.0 #nanoGPT original code says 0.0 is good for pre-training, 0.1 is good for fine-tuning
 input_normalization:
-  #Not sure if necessary. Even though input embeddings result from MLPs, attention blocks start with layernorm.
-  normalize: {"bds": True, "obs": True, "act": False}
+  normalize: {"bds": True, "obs": True} #action normalization is unavailable
   env_type: "navigation_env" #only needed if the normalize dict above has keys that are True. Currenlty, the only available choice in 'navigation_env'
 train_cfg:
-  data_path_train: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_train.pkl"
-  data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_val.pkl"
+  #data_path_train: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_train.pkl"
+  #data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_val.pkl"
+  data_path_train: "/tmp/logdir/archive_transformed_actions.pkl"
+  data_path_val: "/tmp/logdir/archive_transformed_actions.pkl"
   max_epochs: 5000 # total number of training iterations
   val_frequ: 5 #compute validation loss only every val_frequ iterations
-  batch_size: 40
+  batch_size: 20
   adamW: 
-      learning_rate : 1e-3 # max learning rate
+      learning_rate : 5e-3 # max learning rate 
       weight_decay : 1e-1
       beta1 : 0.9
       beta2 : 0.95
@@ -31,11 +31,13 @@ train_cfg:
   schedule:
     decay_lr: True 
     #lr_decay_steps : 777000 # current value is the equivalent of 3500 epochs assuming 222 updates per epoch, 
-    lr_decay_steps : 777500 # this one is for fine-tuning a network, so... yeah, around 2500 epochs with 311 updates per epoch
+    #lr_decay_steps : 777500 # this one is for fine-tuning a network, so... yeah, around 2500 epochs with 311 updates per epoch
+    lr_decay_steps : 75000 # this one is for fine-tuning a network, so... yeah, around 2500 epochs with 311 updates per epoch
     warmup_steps: 400 # how many steps to warm up for
     min_lr : 5e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 test_cfg:
-  data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_test.pkl"
+  #data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_test.pkl"
+  data_path: "/tmp/logdir/archive_transformed_actions.pkl"
   batch_size: 4
 deploy_cfg:
   env_type: "navigation_env"
@@ -44,10 +46,11 @@ deploy_cfg:
   prompts: "/tmp/logdir/prompt_file_test.json" 
 device: "cuda"
 dtype: "float32" 
-#pretrained_model: ""
+pretrained_model: ""
 #the model below was trained with commit 2b5f2dbec9e90857fcfa5d258b49f53ef0f0d4c1. Best model so far. 
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_362430/model_2955" 
-pretrained_model: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/transformers/model_2955" 
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_362430/last_model" 
+#pretrained_model: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/transformers/model_2955" 
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_566453/last_model" 
 deterministic: True
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"

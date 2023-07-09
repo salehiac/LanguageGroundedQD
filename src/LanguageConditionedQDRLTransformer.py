@@ -28,6 +28,7 @@ def main_train(
         tokenizer,
         input_normalizer,
         device,
+        kmeans,
         log_dir):
     """
     train and validation
@@ -45,7 +46,11 @@ def main_train(
 
     num_train_steps=0#steps, not epochs
     train_loss_hist=[]
+    train_term_1_hist=[]
+    train_term_2_hist=[]
     val_loss_hist=[]
+    val_term_1_hist=[]
+    val_term_2_hist=[]
     best_val_loss_idx=-1
     best_val_loss=float("inf")
     tqdm_epoch=tqdm.tqdm(range(cfg["max_epochs"]),desc="epochs")
@@ -70,6 +75,8 @@ def main_train(
         ##training loop
         model.train()
         train_loss_epc=[]
+        train_term_1_epc=[]
+        train_term_2_epc=[]
         lr=MiscUtils.get_lr(it=num_train_steps,
                 warmup_iters=cfg["schedule"]["warmup_steps"],
                 lr_decay_iters=cfg["schedule"]["lr_decay_steps"],
@@ -84,10 +91,6 @@ def main_train(
 
             optimizer.zero_grad()
 
-            if len(batch[0])<train_loader.batch_size:
-                batch=pad_batch(batch,train_loader.batch_size)
-
-            #pdb.set_trace()
             processed_batch=nanoGPT_QDRL.process_batch(
                     batch=batch,
                     tokenizer=tokenizer, 
@@ -95,27 +98,24 @@ def main_train(
                     bd_dims=input_dims["bd"],
                     obs_dims=input_dims["obs"],
                     act_dims=input_dims["act"],
+                    kmeans=kmeans,
                     device=_device,
-                    input_normalizer=_input_normalizer)
+                    input_normalizer=input_normalizer)
 
-            #(text_token_ids, 
-            #        text_posional_ids,
-            #        bd_tensor,
-            #        obs_tensor,
-            #        act_tensor,
-            #        subseq_timestamps
-            #        )=processed_batch
-
-            predicted_actions, loss=model(*processed_batch,generation_mode=False,epoch=epoch_i)
+            _, loss, term_1, term_2 =model(*processed_batch,generation_mode=False,epoch=epoch_i)
             loss.backward()
             optimizer.step()
             num_train_steps+=1
 
             train_loss_epc.append(loss.item())
+            train_term_1_epc.append(term_1)
+            train_term_2_epc.append(term_2)
 
             if cfg["adamW"]["grad_clip"]!=0.0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), cfg["adamW"]["grad_clip"])
         train_loss_hist.append(np.mean(train_loss_epc))
+        train_term_1_hist.append(np.mean(train_term_1_epc))
+        train_term_2_hist.append(np.mean(train_term_2_epc))
         tqdm_epoch.set_postfix({"epoch loss":train_loss_hist[-1],"LR":lr})
 
  
@@ -124,11 +124,9 @@ def main_train(
             with torch.no_grad():
                 model.eval()
                 val_loss_epc=[]
+                val_term_1_epc=[]
+                val_term_2_epc=[]
                 for batch_val in tqdm.tqdm(val_loader,desc="epoch progress (val)",leave=False):
-
-                    if len(batch_val[0])<val_loader.batch_size:
-                        batch_val=pad_batch(batch_val,val_loader.batch_size)
-
 
                     processed_batch_val=nanoGPT_QDRL.process_batch(
                         batch=batch_val,
@@ -137,18 +135,25 @@ def main_train(
                         bd_dims=input_dims["bd"],
                         obs_dims=input_dims["obs"],
                         act_dims=input_dims["act"],
+                        kmeans=kmeans,
                         device=_device,
-                        input_normalizer=_input_normalizer)
+                        input_normalizer=input_normalizer)
                 
-                    predicted_actions_val, loss_val=model(*processed_batch_val,generation_mode=False)
+                    _, loss_val, term_1_val, term_2_val=model(*processed_batch_val,generation_mode=False)
                     val_loss_epc.append(loss_val.item())
+                    val_term_1_epc.append(term_1_val)
+                    val_term_2_epc.append(term_2_val)
                 val_loss_epc_mean=np.mean(val_loss_epc)
+                val_term_1_epc_mean=np.mean(val_term_1_epc)
+                val_term_2_epc_mean=np.mean(val_term_2_epc)
                 if val_loss_epc_mean<best_val_loss:
                     best_val_loss=val_loss_epc_mean
                     best_val_loss_idx=epoch_i
         
         #we still add the val_loss_epc_mean even epoch_i%val_frequ!=0. This is just for display, so that we get the same number of inputs to plt.plot as for train, without interpolation
         val_loss_hist.append(val_loss_epc_mean)
+        val_term_1_hist.append(val_term_1_epc_mean)
+        val_term_2_hist.append(val_term_2_epc_mean)
        
         if best_val_loss_idx==epoch_i:
             torch.save(model,train_val_log_path+f"/model_{epoch_i}")
@@ -156,7 +161,16 @@ def main_train(
         torch.save(model,train_val_log_path+f"/last_model")
 
         with open(train_val_log_path+f"/progress_info_{epoch_i}","w") as fl:
-            dd={"train_loss":train_loss_hist,"val_loss": val_loss_hist,"epoch_with_best_val_loss": best_val_loss_idx,"lr":lr}
+            dd={
+                    "train_loss":train_loss_hist,
+                    "train_term_1":train_term_1_hist,
+                    "train_term_2":train_term_2_hist,
+                    "val_loss": val_loss_hist,
+                    "val_term_1":val_term_1_hist,
+                    "val_term_2":val_term_2_hist,
+                    "epoch_with_best_val_loss": best_val_loss_idx,
+                    "lr":lr
+                    }
             json.dump(dd,fl)
 
     plt.plot(train_loss_hist,"r")
@@ -171,6 +185,7 @@ def main_test(
         input_dims,
         tokenizer,
         input_normalizer,
+        kmeans,
         device,
         log_dir):
     """
@@ -183,6 +198,8 @@ def main_test(
     model.eval()
     with torch.no_grad():
         test_loss=[]
+        test_loss_term_1=[]
+        test_loss_term_2=[]
         for batch_test in tqdm.tqdm(test_loader,desc="test",leave=False):
             processed_batch_test=nanoGPT_QDRL.process_batch(
                     batch=batch_test,
@@ -191,31 +208,20 @@ def main_test(
                     bd_dims=input_dims["bd"],
                     obs_dims=input_dims["obs"],
                     act_dims=input_dims["act"],
+                    kmeans=kmeans,
                     device=_device,
-                    input_normalizer=_input_normalizer)
+                    input_normalizer=input_normalizer)
 
-            predicted_actions_test, loss_test=model(*processed_batch_test,generation_mode=False)
+            _, loss_test, term_1_test, term_2_test=model(*processed_batch_test,generation_mode=False)
             test_loss.append(loss_test.item())
+            test_loss_term_1.append(term_1_test)
+            test_loss_term_2.append(term_2_test)
 
         plt.plot(test_loss)
+        plt.plot(test_loss_term_1)
+        plt.plot(test_loss_term_2)
         plt.title(np.mean(test_loss))
         plt.show()
-
-
-def pad_batch(batch, T):
-    """
-    if batch size is N<T, copy last element of batch to reach size T
-    """
-    N=len(batch[0])
-    assert N==batch[1].shape[0]
-
-    U=T-N
-    #pdb.set_trace()
-    b0=batch[0]+tuple([batch[0][-1]]*U)
-    b1=torch.cat([batch[1], batch[1][-1,:].repeat(U,1)],0)
-
-    return [b0, b1]
-
 
 
 
@@ -242,6 +248,7 @@ if __name__=="__main__":
     torch.set_default_dtype(getattr(torch,_config["dtype"]))
     _device=torch.device("cpu") if not torch.cuda.is_available() else torch.device(_config["device"])
 
+    _kmeans=(lambda : (pickle.load(fl:=open(_config["model_cfg"]["kmeans"],"rb")),fl.close())[0])()
     if _config["train_model"] or _config["test_model"]:
         #load train/val/test archives and create datasets/dataloaders
         _load_archs=lambda fn: (pickle.load(f:=open(fn,"rb")),f.close())[0]
@@ -253,7 +260,8 @@ if __name__=="__main__":
         #_arch_train=_arch_train[:600]
         #_arch_val=_arch_train
 
-        _cmd_dims=_arch_train[0]._tau["action"].shape[1]
+        assert isinstance(_arch_train[0]._tau["action"],tuple), "please first expresset the actions using kmeans representation (see data_tools.py)"
+        _cmd_dims=_arch_train[0]._tau["action"][1].shape[1]
         _obs_dims=_arch_train[0]._tau["obs"].shape[1]
         _bd_dims=_arch_train[0]._behavior_descr.shape[1]
 
@@ -290,6 +298,7 @@ if __name__=="__main__":
                 n_action_dims=_cmd_dims,
                 n_obs_dims=_obs_dims,
                 n_bd_dims=_bd_dims,
+                kmeans_obj=_kmeans
                 )
 
         _model=nanoGPT_QDRL.GPT_QDRL(_gpt_cfg)
@@ -301,7 +310,7 @@ if __name__=="__main__":
         if _config["input_normalization"]["env_type"]=="navigation_env":
             from dataset_tools import make_navigation_env
             _nav_env=make_navigation_env()
-            _input_normalizer=functools.partial(_nav_env.normalize_bd_obs_act,options=_config["input_normalization"]["normalize"],dbg=True)
+            _input_normalizer=functools.partial(_nav_env.normalize_bd_obs,options=_config["input_normalization"]["normalize"],dbg=True)
         else: 
             raise NotImplementedError("Only available env is navigation_env")
 
@@ -315,6 +324,7 @@ if __name__=="__main__":
                 input_dims={"bd":_bd_dims, "obs":_obs_dims, "act":_cmd_dims},
                 tokenizer=_tokenizer,
                 input_normalizer=_input_normalizer,
+                kmeans=_kmeans,
                 device=_device,
                 log_dir=_config["logging"]["log_dir"])
     if _config["test_model"]:
@@ -326,6 +336,7 @@ if __name__=="__main__":
                 input_dims={"bd":_bd_dims, "obs":_obs_dims, "act":_cmd_dims},
                 tokenizer=_tokenizer,
                 input_normalizer=_input_normalizer,
+                kmeans=_kmeans,
                 device=_device,
                 log_dir=_config["logging"]["log_dir"])
 
@@ -380,32 +391,4 @@ if __name__=="__main__":
             pdb.set_trace()
 
 
-
-
-
- 
-    debug=False
-    if debug:
-        _train_loader_it=iter(_train_loader)
-        _bb=next(_train_loader_it)
-
-       
-        _processed_batch=nanoGPT_QDRL.process_batch(batch=_bb,
-                tokenizer=_tokenizer, 
-                context_size=_config["model_cfg"]["block_size"],
-                bd_dims=_bd_dims,
-                obs_dims=_obs_dims,
-                act_dims=_cmd_dims,
-                device=_device,
-                input_normalizer=_input_normalizer)
-       
-        (text_token_ids, 
-                text_posional_ids,
-                bd_tensor,
-                obs_tensor,
-                act_tensor,
-                subseq_timestamps
-                )=_processed_batch
-
-        predicted_actions, loss=_model(*_processed_batch,generation_mode=False)
 

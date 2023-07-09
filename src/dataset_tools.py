@@ -11,6 +11,7 @@ import copy
 from wordcloud import WordCloud
 from collections import Counter 
 from typing import List, Any, Literal
+from sklearn.cluster import KMeans
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -96,42 +97,6 @@ def generate_paper_dataset(logs_root="/tmp/"):
     _, _ = ns(iters=1000, stop_on_reaching_task=False,save_frequency=10)
 
 
-def verify_repeatability_individual(ag):
-    """
-    ATTENTION: behavior will not be consistent under this definition as we're roundig to 1 decimal now, which means the bds etc will be off by a tiny bit
-    TODO: incorporate that rounding into the function or something. Anyway, this was a debug function initially designed to see if the toy env which
-    was based on libfastsim was determinitics, and it was, so maybe just remove this function altogether?
-    return True if the policy's info is repeatable
-    """
-
-    problem = NavigationEnv.NavigationEnv(bd_type="generic",
-                                          assets=_assets)
-
-    fitness, tau, behavior, bd, task_solved = problem(ag)
-
-    attrs = [
-        "_fitness", "_tau", "_behavior", "_behavior_descr", "_solved_task"
-    ]
-
-    def check_equality(xx,yy):
-        if isinstance(xx,np.ndarray):#for behavior and behavior descriptors
-            print(xx-yy)
-            return (xx==yy).all()
-        if isinstance(xx,float) or isinstance(xx,bool):#for fitness and task_solved
-            return xx==yy
-        if isinstance(xx,dict):#for tau, i.e. the obs-action traj
-            aa=(xx["obs"]==yy["obs"]).all()
-            bb=(xx["action"]==yy["action"]).all()
-            return aa and bb
-    
-    comp = list(
-        map(
-            lambda z: check_equality(z[0],z[1]),
-            zip([fitness, tau, behavior, bd, task_solved],
-                [getattr(ag, attrs[i]) for i in range(5)])))
-
-    return sum(comp) == len(comp)
-
 def find_duplicates(arch):
 
     dupes=[]
@@ -165,6 +130,61 @@ class ArchDataset(Dataset):
     def make_data_loader(self, batch_size):
         return DataLoader(self, batch_size=batch_size, shuffle=True if self.split=="train" else False)
 
+
+def cluster_actions(arch, num_clusters, read_clusters_from_file="", save_centers_to="/tmp/", display=True):
+
+
+    all_actions=[]
+
+    for ag_i in range(len(arch)):
+        traj=arch[ag_i]._tau
+        all_actions.append(traj["action"])
+
+    all_actions=np.concatenate(all_actions, 0)
+    np.random.shuffle(all_actions)
+
+    if not read_clusters_from_file:
+        kmeans = KMeans(n_clusters=num_clusters, random_state=0).fit(all_actions)
+    else:
+        print("loading cluster centers from ",read_clusters_from_file)
+        with open(read_clusters_from_file,"rb") as fl:
+            kmeans=pickle.load(fl)
+
+    print('Cluster centers:\n', kmeans.cluster_centers_)
+
+    if display:
+        sampled_actions=all_actions[:5000]
+        y_pred = kmeans.predict(sampled_actions)
+
+        plt.scatter(sampled_actions[:, 0], sampled_actions[:, 1], c=y_pred)
+        plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=300, c='red') # cluster centers
+        plt.show()
+
+    if save_centers_to and not read_clusters_from_file:
+        with open(f"{save_centers_to}/cluster_centers.pkl","wb") as fl:
+            pickle.dump(kmeans,fl)
+
+    return kmeans
+
+
+class ActionAsCenterPlusOffset:
+    
+    def __init__(self, kmeans):
+        self.kmeans=kmeans
+
+    def transform(self, actions):
+        cluster_ids=self.kmeans.predict(actions)
+        centers=self.kmeans.cluster_centers_[cluster_ids]
+        offsets=actions-centers
+
+        return cluster_ids, offsets
+
+    def reverse(self, cluster_ids, offsets):
+
+        actions=self.kmeans.cluster_centers_[cluster_ids]+offsets
+        return actions
+
+
 if __name__ == "__main__":
 
     _parser = argparse.ArgumentParser(
@@ -194,11 +214,6 @@ if __name__ == "__main__":
         help=
         "verify that the policies in the input archive produce the {(obs,action)} and behaviors that are in the archive."
     )
-    _parser.add_argument(
-        '--verify_repeatability_individual',
-        type=int,
-        default=-1,
-        help="verify individual at this index instead of entire archive")
     _parser.add_argument(
         '--plot_behavior_space_traj',
         action='store_true',
@@ -268,6 +283,19 @@ if __name__ == "__main__":
             help="the tow archives are concatenated and then shuffled"
             )
 
+    _parser.add_argument(
+            "--prepare_actions_for_multimodal",
+            type=int,
+            default=-1,
+            help="If prepare_actions_for_multimodal!=-1, then performs k-means with prepare_actions_for_multimodal centroids, and expresses each action as an index and an offset.")
+
+    _parser.add_argument(
+            "--read_kmeans_from_file",
+            type=str,
+            default="",
+            help="")
+
+
 
 
     #output arg
@@ -286,30 +314,6 @@ if __name__ == "__main__":
     if _args.input_archive:
         with open(_args.input_archive, "rb") as fl:
             _in_arch = pickle.load(fl)
-
-        if _args.verify_repeatability:
-            if int(_args.verify_repeatability_individual) != -1:
-                passed = verify_repeatability_individual(_in_arch[int(
-                    _args.verify_repeatability_individual)])
-                print(
-                    colored(
-                        f"Individual's behavior was consistent with archive's content: {passed}",
-                        "red" if not passed else "green",
-                        attrs=["bold"]))
-            else:
-                passed_lst = list(
-                    futures.map(lambda x: verify_repeatability_individual(x),
-                                _in_arch))
-                print(
-                    colored(
-                        f"consistent individuals: {sum(passed_lst)}/{len(_in_arch)}",
-                        "blue",
-                        attrs=["bold"]))
-
-        elif int(_args.verify_repeatability_individual) != -1:
-            raise Exception(
-                "You have specified verify_repeatability_individual without passing the verify_repeatability flag"
-            )
 
         if _args.plot_behavior_space_traj:
 
@@ -421,8 +425,16 @@ if __name__ == "__main__":
                first_non_annotated=None
 
            _dd["described from/to"]=f"[0,{first_non_annotated})" if first_non_annotated is not None else "fully described"
-           _dd["episode length"]=_in_arch[0]._tau["action"].shape[0]
-           _dd["cmd dims"]=_in_arch[0]._tau["action"].shape[1]
+           if isinstance(_in_arch[0]._tau["action"],np.ndarray):
+               _dd["episode length"]=_in_arch[0]._tau["action"].shape[0] 
+               _dd["cmd dims"]=_in_arch[0]._tau["action"].shape[1]
+               _dd["kmeans representation"]=False
+           else:#cluser center+offset repr
+               assert isinstance(_in_arch[0]._tau["action"],tuple)
+               _dd["episode length"]=_in_arch[0]._tau["action"][1].shape[0] 
+               _dd["cmd dims"]=_in_arch[0]._tau["action"][1].shape[1]
+               _dd["kmeans representation"]=True
+           
            _dd["obs dims"]=_in_arch[0]._tau["obs"].shape[1]
            _dd["bd dims"]=_in_arch[0]._behavior_descr.shape[1]
 
@@ -538,12 +550,26 @@ if __name__ == "__main__":
             pickle.dump(_arch, fl)
 
 
+    if _args.prepare_actions_for_multimodal!=-1:
+
+        _kmeans_file=_args.read_kmeans_from_file if _args.read_kmeans_from_file else ""
+
+        _kmeans=cluster_actions(_in_arch,num_clusters=_args.prepare_actions_for_multimodal,read_clusters_from_file=_kmeans_file)
+
+        aacpo=ActionAsCenterPlusOffset(_kmeans)
+
+        for ag_i in range(len(_in_arch)):
+
+            if ag_i%50==0:
+                print(f"processed {ag_i}/{len(_in_arch)}")
+
+            actions_idx_and_offset_repr=aacpo.transform(_in_arch[ag_i]._tau["action"])
+            assert (aacpo.reverse(*(actions_idx_and_offset_repr))==_in_arch[ag_i]._tau["action"]).all()
+            _in_arch[ag_i]._tau["action"]=actions_idx_and_offset_repr
 
 
-
-
-
-
+        with open(f"{_args.out_dir}/archive_transformed_actions.pkl","wb") as fl:
+            pickle.dump(_in_arch, fl)
 
 
 

@@ -1,4 +1,28 @@
 
+
+
+OKaaay. It's been a long time since I've updated the todo. Okay, now that I'm making everything multimodal, here's what is done and what remains:
+
+      - multimodal loss has been implemented, hopefuly without bugs          [OK]
+      - the gptPolicy hasn't been updated to support multimodal              
+      - add both logs for both loss terms                                    [OK]
+      - the archives need to go through:
+         - action representation change (already implemented in data_tools.py) ===> IMPORTANT: you should have enough clusters! (36 seems like a good start)
+         - filter some bds 
+         - (optional => todo later) filter some prompts 
+         - split
+      - a new tokenizer should be trained
+      - Okay, we should probably be ready to train
+
+
+
+
+
+
+
+
+
+
 1̶.̶ ̶A̶d̶d̶ ̶a̶ ̶s̶c̶r̶i̶p̶t̶ ̶t̶h̶a̶t̶ ̶l̶o̶a̶d̶s̶ ̶a̶n̶ ̶a̶r̶c̶h̶i̶v̶e̶,̶ ̶p̶l̶a̶y̶s̶ ̶i̶t̶,̶ ̶a̶n̶d̶ ̶v̶e̶r̶i̶f̶i̶e̶s̶ ̶t̶h̶a̶t̶ ̶t̶h̶e̶ ̶f̶i̶n̶a̶l̶ ̶B̶D̶ ̶i̶s̶ ̶t̶h̶e̶ ̶s̶a̶m̶e̶ ̶t̶h̶a̶t̶ ̶i̶s̶ ̶i̶n̶ ̶t̶h̶e̶ ̶a̶r̶c̶h̶i̶v̶e̶ ̶f̶o̶r̶ ̶e̶a̶c̶h̶ ̶p̶o̶l̶i̶c̶y̶
 2̶.̶ ̶A̶d̶d̶ ̶a̶ ̶s̶c̶r̶i̶p̶t̶ ̶t̶h̶a̶t̶ ̶s̶a̶v̶e̶s̶ ̶e̶n̶t̶i̶r̶e̶ ̶t̶r̶a̶j̶e̶c̶t̶o̶i̶r̶s̶ ̶(̶a̶c̶t̶i̶o̶n̶,̶ ̶o̶b̶s̶)̶ ̶t̶o̶ ̶t̶h̶e̶ ̶a̶r̶c̶h̶i̶v̶e̶ 
 3.̶ ̶A̶d̶d̶ ̶a̶ ̶s̶c̶r̶i̶p̶t̶ ̶t̶h̶a̶t̶ ̶l̶o̶a̶d̶ ̶t̶h̶a̶t̶ ̶a̶r̶c̶h̶i̶v̶e̶ ̶a̶n̶d̶ ̶t̶h̶e̶n̶ ̶a̶n̶n̶o̶t̶a̶t̶e̶s̶ ̶i̶t̶ ̶w̶i̶t̶h̶ ̶s̶e̶m̶a̶n̶t̶i̶c̶ ̶i̶n̶f̶o̶ ̶(̶y̶o̶u̶ ̶m̶i̶g̶h̶t̶ ̶n̶e̶e̶d̶ ̶t̶o̶ ̶d̶o̶ ̶a̶ ̶b̶i̶t̶ ̶o̶f̶ ̶m̶a̶n̶u̶a̶l̶ ̶d̶e̶f̶i̶n̶i̶n̶g̶ ̶h̶e̶r̶e̶)

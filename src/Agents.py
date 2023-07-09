@@ -72,14 +72,15 @@ class Agent(ABC):
         """
         text=copy.deepcopy(self._llm_descr)
         
-        actions=torch.tensor(self._tau["action"])
+        action_cluster_idx=torch.tensor(self._tau["action"][0]).reshape(-1,1)
+        action_offsets=torch.tensor(self._tau["action"][1])
         obs=torch.tensor(self._tau["obs"])
         N=obs.shape[0]#episode length
         bd_conditioning=torch.tensor(self._behavior_descr).repeat(N,1)
 
-        step_by_step_inputs=torch.cat([bd_conditioning, obs, actions],1)
+        step_by_step_inputs=torch.cat([bd_conditioning, obs, action_offsets],1)
 
-        return (text, step_by_step_inputs.reshape(N*(obs.shape[1]+actions.shape[1]+bd_conditioning.shape[1])))#reshapes in a row major manner
+        return (text, step_by_step_inputs.reshape(N*(bd_conditioning.shape[1]+obs.shape[1]+action_offsets.shape[1])),action_cluster_idx)#reshapes in a row major manner
 
 
 _non_lin_dict={"tanh":torch.tanh, "relu": torch.relu, "sigmoid": torch.sigmoid}
