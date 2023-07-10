@@ -403,15 +403,15 @@ class GPT_QDRL(nn.Module):
             zz=xx[:,obs_inds,:]
             
             if loss_type=="multimodal_0":
-                predicted_actions_proba=torch.softmax(self.action_prediction_head_cluster_ids(zz),
-                        dim=-1)#(BB, LL, num_clusters)
+                predicted_actions_scores=self.action_prediction_head_cluster_ids(zz) #(BB, LL, num_clusters)
                 predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,
                         LL,
                         self.config.kmeans_obj.cluster_centers_.shape[0],-1)#(BB, LL, num_clusters, act_dims)
 
-                #crossentropy loss between predicted cluster probabilities and ground truth cluster ids
+                #crossentropy loss between predicted cluster probabilities and ground truth cluster ids.
+                #note that it does the softmax itself (along the class dimension)
                 cel=torch.nn.CrossEntropyLoss()
-                term_1=cel(predicted_actions_proba.transpose(1,2), cluster_centers_ids.squeeze(-1))
+                term_1=cel(predicted_actions_scores.transpose(1,2), cluster_centers_ids.squeeze(-1))
 
                 #Now fetch predicted offset for ground truth cluster ids and minimize their MSE
                 UU=predicted_actions_offsets # (BB, LL, num_clusters, act_dims)
@@ -440,10 +440,10 @@ class GPT_QDRL(nn.Module):
             term_2_value=None
             zz=xx[:,[obs_inds[-1]],:]
 
-            predicted_actions_proba=torch.softmax(self.action_prediction_head_cluster_ids(zz),
-                    dim=-1)#(BB, LL, num_clusters)
+            #this softmax is kept as we want probabilities to sample from, not a loss
+            predicted_actions_scores=torch.softmax(self.action_prediction_head_cluster_ids(zz))#(BB, LL, num_clusters)
 
-            sampled_act=torch.multinomial(predicted_actions_proba.reshape(-1,kmeans_obj.cluster_centers_.shape[0]))
+            sampled_act=torch.multinomial(predicted_actions_scores.reshape(-1,kmeans_obj.cluster_centers_.shape[0]))
             sampled_act=sampled_act.reshape(BB,LL,1)
             
             predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,
