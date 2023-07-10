@@ -4,14 +4,14 @@
 OKaaay. It's been a long time since I've updated the todo. Okay, now that I'm making everything multimodal, here's what is done and what remains:
 
       - multimodal loss has been implemented, hopefuly without bugs          [OK]
-      - the gptPolicy hasn't been updated to support multimodal              
+      - the gptPolicy hasn't been updated to support multimodal              [OK]
       - add both logs for both loss terms                                    [OK]
       - the archives need to go through:
-         - action representation change (already implemented in data_tools.py) ===> IMPORTANT: you should have enough clusters! (36 seems like a good start)
-         - filter some bds 
-         - (optional => todo later) filter some prompts 
-         - split
-      - a new tokenizer should be trained
+         - action representation change (already implemented in data_tools.py) IMPORTANT: you should have enough clusters! (put 32)   [OK]
+         - filter some bds                                                                                                            [let's not do that right now] #data_2 and 3 are filtered already
+         - (optional => todo later) filter some prompts                                                                               [ditto]
+         - split                                                                                                                      [OK]
+      - a new tokenizer should be trained                                                                                             [OK] #seems it's similar to the old one
       - Okay, we should probably be ready to train
 
 

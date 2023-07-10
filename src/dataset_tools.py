@@ -564,7 +564,7 @@ if __name__ == "__main__":
                 print(f"processed {ag_i}/{len(_in_arch)}")
 
             actions_idx_and_offset_repr=aacpo.transform(_in_arch[ag_i]._tau["action"])
-            assert (aacpo.reverse(*(actions_idx_and_offset_repr))==_in_arch[ag_i]._tau["action"]).all()
+            assert (np.abs(aacpo.reverse(*(actions_idx_and_offset_repr))-_in_arch[ag_i]._tau["action"])<1e-7).all()
             _in_arch[ag_i]._tau["action"]=actions_idx_and_offset_repr
 
 
