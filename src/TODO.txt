@@ -15,6 +15,9 @@ OKaaay. It's been a long time since I've updated the todo. Okay, now that I'm ma
       - Okay, we should probably be ready to train
 
 
+      - Also fucking add the max_len_padding to the config file, otherwise it might change between train and generation and will be bug-prone
+
+
 
 
 

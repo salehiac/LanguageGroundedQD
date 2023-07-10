@@ -1,5 +1,5 @@
 ---
-train_model: True#if False, a pretrained model should be provided.
+train_model: False #if False, a pretrained model should be provided.
 test_model: False #
 deploy_in_env: True 
 model_cfg: 
@@ -23,7 +23,8 @@ train_cfg:
   val_frequ: 5 #compute validation loss only every val_frequ iterations
   batch_size: 20
   adamW: 
-      learning_rate : 5e-3 # max learning rate 
+      #learning_rate : 5e-3 # max learning rate 
+      learning_rate : 0.0001 # max learning rate 
       weight_decay : 1e-1
       beta1 : 0.9
       beta2 : 0.95
@@ -46,9 +47,10 @@ deploy_cfg:
   prompts: "/tmp/logdir/prompt_file_test.json" 
 device: "cuda"
 dtype: "float32" 
-pretrained_model: ""
-#the model below was trained with commit 2b5f2dbec9e90857fcfa5d258b49f53ef0f0d4c1. Best model so far. 
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_362430/last_model" 
+#pretrained_model: ""
+pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_661719/last_model"
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_652826/last_model" 
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_656277/model_895"
 #pretrained_model: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/transformers/model_2955" 
 #pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_566453/last_model" 
 deterministic: True

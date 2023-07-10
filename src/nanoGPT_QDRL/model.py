@@ -227,7 +227,6 @@ def process_batch(
     T_u=context_size-T_text
     #print(f"T_u=={T_u}")
 
-   
     min_RL_timestamp=10#this is arbitrary and just for the assert
     assert T_u//3>min_RL_timestamp, f"The text from the batch leave room for less than {T_u} RL tokens. Either your text is too long, or you should increase the context size (config.block_size)"
 
@@ -336,8 +335,8 @@ class GPT_QDRL(nn.Module):
             bd_tensor,
             obs_tensor,
             act_tensor,
-            cluster_centers_ids,#useful for supervision
-            cluster_center_coords,#useful for supervision
+            cluster_centers_ids, #useful for supervision
+            cluster_center_coords, #useful for supervision
             timestamp_tensor,
             generation_mode:bool,
             epoch:int=-1,
@@ -370,6 +369,7 @@ class GPT_QDRL(nn.Module):
 
         emb_sz=self.config.n_embd
         RL_emb=torch.cat([bd_emb, obs_emb, act_emb],-1).view(BB,3*LL,emb_sz)#3*LL==3*(T_u//3), see the docstring of process_batch for T_u's definition
+
         
         RL_emb_dbg=torch.cat([bd_emb, obs_emb, act_emb],-1)#(BB, LL, n_embd*3)
         for ii in range(LL):
@@ -379,6 +379,7 @@ class GPT_QDRL(nn.Module):
         
         x1=word_token_emb+word_pos_emb
         x2=RL_emb+timestamp_emb
+
 
         xx=torch.cat([x1, x2],1)#(B,context_length-T_u%3,emb_sz), see the docstring of process_batch for T_u's defintion
 
@@ -430,10 +431,13 @@ class GPT_QDRL(nn.Module):
                 term_1_value=term_1.item()
                 term_2_value=term_2.item()
 
+
+                see_tensor=torch.cat([act_tensor,predicted_actions],-1).detach().cpu().numpy()
+                print(see_tensor)
+
             else:
                 raise Exception("Unknown loss type")
-            #if epoch%1000==0 and epoch:
-            #    pdb.set_trace()
+
         else:
             loss=None
             term_1_value=None
@@ -441,19 +445,23 @@ class GPT_QDRL(nn.Module):
             zz=xx[:,[obs_inds[-1]],:]
 
             #this softmax is kept as we want probabilities to sample from, not a loss
-            predicted_actions_scores=torch.softmax(self.action_prediction_head_cluster_ids(zz))#(BB, LL, num_clusters)
+            predicted_actions_scores=torch.softmax(self.action_prediction_head_cluster_ids(zz),dim=-1)#(BB, LL, num_clusters)
 
-            sampled_act=torch.multinomial(predicted_actions_scores.reshape(-1,kmeans_obj.cluster_centers_.shape[0]))
-            sampled_act=sampled_act.reshape(BB,LL,1)
-            
+            #sample clusters
+            sampled_act=torch.multinomial(predicted_actions_scores.reshape(-1,self.config.kmeans_obj.cluster_centers_.shape[0]),num_samples=BB)
+            sampled_act=sampled_act.reshape(BB,1,1)
+           
+            #fetch corresponding offset predictions
             predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,
-                    LL,
-                    self.config.kmeans_obj.cluster_centers_.shape[0],-1)#(BB, LL, num_clusters, act_dims)
+                    1,
+                    self.config.kmeans_obj.cluster_centers_.shape[0],-1)#(BB, 1, num_clusters, act_dims)
 
             UU=predicted_actions_offsets
-            VV=sampled_act.unsqueeze(-1) # (BB, LL, 1, 1)
+            VV=sampled_act.unsqueeze(-1) # (BB, 1, 1, 1)
             WW=UU.gather(2, VV.expand(-1,-1,-1,self.config.n_action_dims))
-                
+           
+            #fetch corresponding center coordinates and predict action
+            cluster_center_coords=torch.Tensor(self.config.kmeans_obj.cluster_centers_[sampled_act.squeeze(-1),:]).to(UU.device)
             predicted_actions=cluster_center_coords+WW.squeeze(2)
 
         return predicted_actions, loss, term_1_value, term_2_value
@@ -492,15 +500,15 @@ class QDRLPolicy:
             tokenizer,
             device,
             input_normalizer=None,
-            use_default_start=-1):
+            max_len_pad=226):
         
         self.model=model
         self.tokenizer=tokenizer
         self.device=device
         self.input_normalizer=input_normalizer
-        self.use_default_start=use_default_start
         self.traj_window=None
         self.traj_start_timestamp=0
+        self.max_len_pad=max_len_pad
     
     def reset(self, prompt_text, prompt_bd):
        
@@ -534,17 +542,19 @@ class QDRLPolicy:
         self.traj_window=torch.cat([self.traj_window, new_input],0) if self.traj_window is not None else new_input # (LL, DD)
 
 
-        text_token_ids=self.tokenizer([self.textual_conditioning], padding=True, return_tensors="pt").input_ids
+        text_token_ids=self.tokenizer([self.textual_conditioning], padding="max_length", max_length=self.max_len_pad, return_tensors="pt").input_ids 
         T_text=num_text_tokens=text_token_ids.shape[1]
         assert self.cfg.block_size-T_text>10, "The textual prompt is too long. Double check your data, or increase the context length (see yaml config file)"
         text_posional_ids=torch.arange(T_text,dtype=torch.long)
 
         LL=self.traj_window.shape[0]
         if T_text+3*LL>self.model.config.block_size:
-            num_drop=2
-            self.traj_window=self.traj_window[num_drop:,:]
-            LL-=num_drop
-            self.traj_start_timestamp+=num_drop
+            raise Exception("This should not happen.")
+            ### This was a dumb idea: you can drop observations without giving the transformer an info about its state after the drop. Otherwise, it's infinitely ambiguous
+            #num_drop=2
+            #self.traj_window=self.traj_window[num_drop:,:]
+            #LL-=num_drop
+            #self.traj_start_timestamp+=num_drop
 
         bd_tensor=self.traj_window[:,:self.cfg.n_bd_dims].unsqueeze(0)
         obs_tensor=self.traj_window[:,self.cfg.n_bd_dims:self.cfg.n_bd_dims+self.cfg.n_obs_dims].unsqueeze(0)
@@ -553,23 +563,21 @@ class QDRLPolicy:
         
 
         if self.input_normalizer is not None:
-            bd_tensor, obs_tensor, act_tensor=self.input_normalizer(
+            bd_tensor, obs_tensor=self.input_normalizer(
                     bd_tensor=bd_tensor,
-                    obs_tensor=obs_tensor,
-                    act_tensor=act_tensor)
-        
-        
-        pdb.set_trace()
-        
-        predicted_actions, _ =self.model(
-                text_token_ids.to(self.device),
-                text_posional_ids.to(self.device),
-                bd_tensor.to(self.device),
-                obs_tensor.to(self.device),
-                act_tensor.to(self.device),
-                cluster_centers_ids,#useful for supervision
-                cluster_center_coords,#useful for supervision
-                traj_timestamps.to(self.device),
+                    obs_tensor=obs_tensor)
+            bd_tensor=bd_tensor.round(decimals=1)#we do this in train, don't remove it here
+
+
+        predicted_actions, _ , _, _=self.model(
+                word_idx=text_token_ids.to(self.device),
+                word_pos=text_posional_ids.to(self.device),
+                bd_tensor=bd_tensor.to(self.device),
+                obs_tensor=obs_tensor.to(self.device),
+                act_tensor=act_tensor.to(self.device),
+                cluster_centers_ids=None,#this will be predicted
+                cluster_center_coords=None,#also predicted
+                timestamp_tensor=traj_timestamps.to(self.device),
                 generation_mode=True)
 
         self.traj_window[-1,-2:]=predicted_actions

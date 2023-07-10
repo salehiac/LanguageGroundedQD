@@ -349,21 +349,21 @@ if __name__=="__main__":
 
         _load_prompts=lambda x: (json.load(fl:=open(x,"r")),fl.close())[0]
         prompt_lst=_load_prompts(_config["deploy_cfg"]["prompts"])
-        np.random.shuffle(prompt_lst)
+        #np.random.shuffle(prompt_lst)
 
         policy=nanoGPT_QDRL.QDRLPolicy(
                 _model,
                 tokenizer=_tokenizer,
                 device=_device,
-                input_normalizer=_input_normalizer,
-                use_default_start=-1)
+                input_normalizer=_input_normalizer)
 
         for prompt_i in range(len(prompt_lst)):
             prompt=prompt_lst[prompt_i]
             print(colored(f"generating trajectory for prompt {prompt_i}...","green",attrs=["bold"]))
+            print(prompt)
 
             bds_lst=prompt[1:1+_nav_env.get_bd_dims()]
-            policy.reset(prompt_text="",#prompt[0],
+            policy.reset(prompt_text=prompt[0],
                     prompt_bd=torch.tensor(bds_lst).reshape(1,2))
 
             (fitness,
