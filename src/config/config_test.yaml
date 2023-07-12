@@ -4,35 +4,41 @@ test_model: False #
 deploy_in_env: True 
 model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_00GNza4ZIM/"
-  kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_32.pkl"
+  #kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_32.pkl"
+  kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_16.pkl"
   block_size: 1435 #In the current dataset, the max token length is 226, and the toy env's episode length is 400 (=>1200 tokens), so block_size needs only be larger than 1426.
   n_layer: 2
   n_head: 4
   n_embd:  200 # don't forget that those will be divided between the heads, so if the embedding is of size 40 and you have 4 heads, it's 10 featurs for each which is sort of riddiculous
   bias: 0 #the original nanoGPT code says that turning it off produces better results
-  dropout_p: 0.0 #nanoGPT original code says 0.0 is good for pre-training, 0.1 is good for fine-tuning
+  dropout_p: 0.1 #nanoGPT original code says 0.0 is good for pre-training, 0.1 is good for fine-tuning
 input_normalization:
   normalize: {"bds": True, "obs": True} #action normalization is unavailable
   env_type: "navigation_env" #only needed if the normalize dict above has keys that are True. Currenlty, the only available choice in 'navigation_env'
 train_cfg:
-  data_path_train: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_train.pkl"
-  data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_val.pkl"
+  #data_path_train: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_train.pkl"
+  #data_path_val: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_val.pkl"
+  data_path_train: "/home/achkan/datasets/qd_llm/new_action_repr/16_clusters/merged_1_2_3_filtered/filtered_archive_train.pkl"
+  data_path_val: "/home/achkan/datasets/qd_llm/new_action_repr/16_clusters/merged_1_2_3_filtered/filtered_archive_val.pkl"
   max_epochs: 5000 # total number of training iterations
   val_frequ: 5 #compute validation loss only every val_frequ iterations
-  batch_size: 40
+  batch_size: 35
   adamW: 
-      learning_rate : 5e-3 # max learning rate 
+      learning_rate : 1e-3 # max learning rate 
+      #learning_rate : 1e-4 # max learning rate 
       weight_decay : 1e-1
       beta1 : 0.9
       beta2 : 0.95
       grad_clip : 0.0 # clip gradients at this value, or disable if == 0.0
   schedule:
     decay_lr: True 
-    lr_decay_steps : 933000 # 3000 epochs with 311 updates per epoch
+    #lr_decay_steps : 933000 # 3000 epochs with 311 updates per epoch
+    lr_decay_steps : 500000 # 
     warmup_steps: 400 # how many steps to warm up for
     min_lr : 5e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 test_cfg:
-  data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_test.pkl"
+  #data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_test.pkl"
+  data_path: "/home/achkan/datasets/qd_llm/new_action_repr/16_clusters/merged_1_2_3_filtered/filtered_archive_test.pkl"
   batch_size: 16
 deploy_cfg:
   env_type: "navigation_env"
@@ -42,6 +48,8 @@ deploy_cfg:
 device: "cuda"
 dtype: "float32" 
 pretrained_model: ""
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_1603178/model_215" #model to pretrain from, first one that I tested after implementing multimodal loss. (32 clusters)
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_1239967/model_620" #model to pretrain from, first one that I tested after implementing multimodal loss. (32 clusters)
 deterministic: True
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"

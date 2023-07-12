@@ -38,10 +38,17 @@ if __name__=="__main__":
     if len(sys.argv)>3:
         for iii in range(3):
             ax[iii].set_xlim([0,int(sys.argv[3])])
-        #plt.hlines(0.01,0,int(sys.argv[3]),"m",linestyle="dashdot")
+        ax[1].hlines(0.02,0,int(sys.argv[3]),"m",linestyle="dashdot")
+        ax[2].hlines(0.005,0,int(sys.argv[3]),"m",linestyle="dashdot")
 
         #plt.hlines(min(progress_dict["train_loss"][start_at:]),0,int(sys.argv[3]),"r",linestyle="--")
         #plt.hlines(min(progress_dict["val_loss"][start_at:]),0,int(sys.argv[3]),"b",linestyle="--")
+    from matplotlib.ticker import MultipleLocator
+    ax[1].yaxis.set_major_locator(MultipleLocator(0.1))
+    ax[1].tick_params(axis='both', which='major', labelsize=5)
+    ax[2].yaxis.set_major_locator(MultipleLocator(0.01))
+    ax[2].tick_params(axis='both', which='major', labelsize=5)
+
 
     #plt.tight_layout()
     for iii in range(3):

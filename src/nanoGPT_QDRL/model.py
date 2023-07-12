@@ -411,9 +411,18 @@ class GPT_QDRL(nn.Module):
 
                 #crossentropy loss between predicted cluster probabilities and ground truth cluster ids.
                 #note that it does the softmax itself (along the class dimension)
-                cel=torch.nn.CrossEntropyLoss()
-                term_1=cel(predicted_actions_scores.transpose(1,2), cluster_centers_ids.squeeze(-1))
+                #Ok let's turn it into focal loss instead
+                #cel=torch.nn.CrossEntropyLoss()
+                #term_1=cel(predicted_actions_scores.transpose(1,2), cluster_centers_ids.squeeze(-1))
 
+                #focal loss
+                proba_mat=torch.softmax(predicted_actions_scores,dim=-1)
+                gamma=3.0
+                
+                p_t=proba_mat.gather(2,cluster_centers_ids)
+                focal_vals=-((1-p_t)**gamma)*torch.log(p_t+1e-8)
+                term_1=focal_vals.mean()
+               
                 #Now fetch predicted offset for ground truth cluster ids and minimize their MSE
                 UU=predicted_actions_offsets # (BB, LL, num_clusters, act_dims)
                 VV=cluster_centers_ids.unsqueeze(-1) # (BB, LL, 1, 1)
