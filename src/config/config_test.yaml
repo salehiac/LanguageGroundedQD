@@ -1,5 +1,5 @@
 ---
-train_model: True #if False, a pretrained model should be provided.
+train_model: False #if False, a pretrained model should be provided.
 test_model: False #
 deploy_in_env: True 
 model_cfg: 
@@ -39,6 +39,8 @@ train_cfg:
 test_cfg:
   #data_path: "/home/achkan/misc_libs/ToyEnvironmentDescribedPolicyRepertoire/merged_archive_test.pkl"
   data_path: "/home/achkan/datasets/qd_llm/new_action_repr/16_clusters/merged_1_2_3_filtered/filtered_archive_test.pkl"
+  #you can provide a list of indexes into the test archive that will be skipped (useful if you want to remove some generated examples that are too close to the train data, to avoid leakage)
+  exclude_file: "/tmp/exclude_file.json" 
   batch_size: 16
 deploy_cfg:
   env_type: "navigation_env"
@@ -47,7 +49,8 @@ deploy_cfg:
   prompts: "/tmp/logdir/prompt_file_test.json" 
 device: "cuda"
 dtype: "float32" 
-pretrained_model: ""
+#pretrained_model: ""
+pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_1619645/model_440" #trained with focal loss 
 #pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_1603178/model_215" #model to pretrain from, first one that I tested after implementing multimodal loss. (32 clusters)
 #pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_1239967/model_620" #model to pretrain from, first one that I tested after implementing multimodal loss. (32 clusters)
 deterministic: True

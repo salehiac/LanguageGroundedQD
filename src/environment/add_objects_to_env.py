@@ -116,7 +116,7 @@ class Scene:
         else:
             return layout
 
-    def display(self,display_bbox,hold_on=False,trajectory:list=[],path2d_info=None,save_to=""):
+    def display(self,display_bbox,hold_on=False,path2d_info=None,save_to=""):
 
         layout=self.layout
         for name,_ in self.object_dict.items():

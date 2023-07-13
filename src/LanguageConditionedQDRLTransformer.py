@@ -12,6 +12,7 @@ import torch
 from transformers import PreTrainedTokenizerFast
 from termcolor import colored
 import tqdm
+from scoop import futures
 
 import nanoGPT_QDRL
 from dataset_tools import ArchDataset
@@ -223,6 +224,39 @@ def main_test(
         plt.title(np.mean(test_loss))
         plt.show()
 
+def generate_traj(prompt,idx, basename, bd_dims, policy, nav_env, scene):
+
+
+    out_fn_fig=f"{basename}/fig_{idx}.png"
+    out_fn_prompt_annotation_pairs=f"{basename}/pair_{idx}.json"
+    bds_lst=prompt[1:1+bd_dims]
+    policy.reset(prompt_text=prompt[0],
+            prompt_bd=torch.tensor(bds_lst).reshape(1,2))
+
+    (fitness,
+            tau_np,
+            behavior2d_np,
+            bd,
+            task_solved
+            )=nav_env(policy)
+
+    fig,_=scene.display(display_bbox=False,
+            hold_on=True,
+            path2d_info=(behavior2d_np, 600, 600))
+
+    annotation = scene.annotate_traj(
+            behavior2d_np, real_w=600, real_h=600, step=40)
+
+    fig.suptitle(MiscUtils.add_newlines(prompt[0]+f"\n BDs={[x//3 for x in bds_lst]}"))
+    plt.tight_layout()
+    plt.savefig(out_fn_fig)
+    plt.close()
+
+    with open(out_fn_prompt_annotation_pairs, "w") as fl:
+        json.dump({"prompt":prompt[0], "predicted_traj_annotation": annotation},fl)
+    
+    print(f"wrote to {out_fn_fig}, {out_fn_prompt_annotation_pairs}")
+
 
 
 if __name__=="__main__":
@@ -357,35 +391,35 @@ if __name__=="__main__":
                 device=_device,
                 input_normalizer=_input_normalizer)
 
-        for prompt_i in range(len(prompt_lst)):
-            prompt=prompt_lst[prompt_i]
-            print(colored(f"generating trajectory for prompt {prompt_i}...","green",attrs=["bold"]))
-            print(prompt)
+        scene = create_env_with_objects("./environment/")
 
-            bds_lst=prompt[1:1+_nav_env.get_bd_dims()]
-            policy.reset(prompt_text=prompt[0],
-                    prompt_bd=torch.tensor(bds_lst).reshape(1,2))
+        num_prompts=0
+        basename="/tmp/traj_dir/"
+        for prompt in prompt_lst:
 
-            (fitness,
-                    tau_np,
-                    behavior2d_np,
-                    bd,
-                    task_solved
-                    )=_nav_env(policy)
+            generate_traj(
+                    prompt,
+                    num_prompts,
+                    basename,
+                    _nav_env.get_bd_dims(),
+                    policy,
+                    _nav_env,
+                    scene)
+            num_prompts+=1
 
+        #batch_size=4
+        #for b_i in range(len(prompt_lst)//batch_size):
 
-            scene = create_env_with_objects("./environment/")
-            fig,_=scene.display(display_bbox=False,
-                    hold_on=True,
-                    path2d_info=(behavior2d_np, 600, 600))
+        #    basename="/tmp/traj_dir/"
+        #    argument_lst=list(zip(
+        #            prompt_lst[b_i*batch_size:(b_i+1)*batch_size],
+        #            list(range(b_i*batch_size,(b_i+1)*batch_size)),
+        #            [basename]*batch_size,
+        #            [_nav_env.get_bd_dims()]*batch_size,
+        #            [policy]*batch_size,
+        #            [_nav_env]*batch_size))
 
-            _annotation = scene.annotate_traj(
-            behavior2d_np, real_w=600, real_h=600, step=40)
-
-            print("================================")
-            print(_annotation)
-            fig.suptitle(MiscUtils.add_newlines(prompt[0]+f"\n BDs={[x//3 for x in bds_lst]}"))
-            plt.tight_layout()
-            plt.show()
-
+        #    _=list(futures.map(
+        #        lambda x: generate_traj(*x),
+        #        argument_lst))
 

@@ -280,7 +280,7 @@ if __name__ == "__main__":
             metavar="x",
             nargs=2, #path to two archives to merge 
             type=str,
-            help="the tow archives are concatenated and then shuffled"
+            help="the two archives are concatenated and then shuffled"
             )
 
     _parser.add_argument(
@@ -294,6 +294,21 @@ if __name__ == "__main__":
             type=str,
             default="",
             help="")
+
+    _parser.add_argument(
+            '--check_dataset_intersections',
+            metavar="x",
+            nargs=2, #path to two archives to merge 
+            type=str,
+            help="sanity check tool to make sure that there are not intersections between the train/val/test splits"
+            )
+
+    _parser.add_argument(
+            '--check_only_for_same_prompts',
+            action="store_true",
+            help="",
+            )
+
 
 
 
@@ -570,6 +585,47 @@ if __name__ == "__main__":
 
         with open(f"{_args.out_dir}/archive_transformed_actions.pkl","wb") as fl:
             pickle.dump(_in_arch, fl)
+
+    if _args.check_dataset_intersections:
+
+        with open(_args.check_dataset_intersections[0], "rb") as fl:
+            _in_arch_0 = pickle.load(fl)
+        with open(_args.check_dataset_intersections[1], "rb") as fl:
+            _in_arch_1 = pickle.load(fl)
+
+        _intersections=[]
+        _num_total=len(_in_arch_0)*len(_in_arch_1)
+        _num_checked=0
+        for ii in range(len(_in_arch_0)):
+            for jj in range(len(_in_arch_1)):
+
+                if _num_checked and _num_checked %1000:
+                    print(f"checked {_num_checked}/{_num_total}")
+
+                ag_i=_in_arch_0[ii]
+                ag_j=_in_arch_1[jj]
+
+                a_cond=ag_i._llm_descr==ag_j._llm_descr
+                b_cond=np.allclose(ag_i._behavior_descr, ag_j._behavior_descr)
+                c_cond=np.allclose(ag_i._tau["obs"], ag_j._tau["obs"])
+                d_cond=np.allclose(ag_i._tau["action"][0], ag_j._tau["action"][0])
+                e_cond=np.allclose(ag_i._tau["action"][1], ag_j._tau["action"][1])
+
+                if _args.check_only_for_same_prompts:
+                    if a_cond:
+                        _intersections.append((ii,jj))
+
+                if a_cond and b_cond and c_cond and d_cond:
+                    _intersections.append((ii,jj))
+                
+                _num_checked+=1
+
+        print(f"there were {len(_intersections)} intersecting pairs")
+        with open(f"{_args.out_dir}/duplicates.json","w") as fl:
+            json.dump(_intersections,fl)
+
+
+
 
 
 
