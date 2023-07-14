@@ -37,10 +37,12 @@ You need to add your openAI API key to the script `get_trajectory_description.py
 Run the following commands, using the archive generated at each step as input to the next:
 ```
 python3 dataset_tools.py --generate_archive --out_dir <some_path> 
-python3 dataset_tools.py --input_archive <generated_archive> --annotate_archive --out_dir <some_path/annotated_archive>
 python3 dataset_tools.py --fix_duplicates
+           blabal        --filter_bds #optional
+python3 dataset_tools.py --input_archive <generated_archive> --annotate_archive --out_dir <some_path/annotated_archive>
 python3 dataset_tools.py --export_annotations --out_dir <annotations_dir>
 ```
+
 
 Now use the `get_trajectory_description` with your `openai.api_key` to generate descriptions for the annotations that have been written to `annotations_dir`:
 
@@ -53,6 +55,8 @@ Finally, add the llm generated descriptions to the archive:
 ```
 python3 dataset_tools.py --input_archive <some_path/annotated_archive> --add_llm_descriptions <path_to_descriptions> --out_dir <some_path/described_archive>
 ```
+
+then you can merge them, change the action representation to cluster-based repre, and finally split the archive
 
 A number of arguments such as `--visualize_llm_description_and_behavior` and `--verify_repeatability` can be used to inspect the generated archive.
 

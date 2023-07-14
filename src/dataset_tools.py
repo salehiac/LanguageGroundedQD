@@ -284,6 +284,12 @@ if __name__ == "__main__":
             )
 
     _parser.add_argument(
+            '--shuffle_archive',
+            action="store_true",
+            help=""
+            )
+
+    _parser.add_argument(
             "--prepare_actions_for_multimodal",
             type=int,
             default=-1,
@@ -547,6 +553,34 @@ if __name__ == "__main__":
             with open(f"{_args.out_dir}/filtered_archive.pkl","wb") as fl:
                 pickle.dump(_arch_filtered,fl)
 
+        if _args.prepare_actions_for_multimodal!=-1:
+
+            _kmeans_file=_args.read_kmeans_from_file if _args.read_kmeans_from_file else ""
+
+            _kmeans=cluster_actions(_in_arch,num_clusters=_args.prepare_actions_for_multimodal,read_clusters_from_file=_kmeans_file)
+
+            aacpo=ActionAsCenterPlusOffset(_kmeans)
+
+            for ag_i in range(len(_in_arch)):
+
+                if ag_i%50==0:
+                    print(f"processed {ag_i}/{len(_in_arch)}")
+
+                actions_idx_and_offset_repr=aacpo.transform(_in_arch[ag_i]._tau["action"])
+                assert (np.abs(aacpo.reverse(*(actions_idx_and_offset_repr))-_in_arch[ag_i]._tau["action"])<1e-7).all()
+                _in_arch[ag_i]._tau["action"]=actions_idx_and_offset_repr
+
+
+            with open(f"{_args.out_dir}/archive_transformed_actions.pkl","wb") as fl:
+                pickle.dump(_in_arch, fl)
+
+
+        if _args.shuffle_archive:
+
+            np.random.shuffle(_in_arch)
+
+            with open(f"{_args.out_dir}/shuffled_archive.pkl","wb") as fl:
+                pickle.dump(_in_arch,fl)
 
     if _args.merge_archives:
 
@@ -565,27 +599,7 @@ if __name__ == "__main__":
             pickle.dump(_arch, fl)
 
 
-    if _args.prepare_actions_for_multimodal!=-1:
-
-        _kmeans_file=_args.read_kmeans_from_file if _args.read_kmeans_from_file else ""
-
-        _kmeans=cluster_actions(_in_arch,num_clusters=_args.prepare_actions_for_multimodal,read_clusters_from_file=_kmeans_file)
-
-        aacpo=ActionAsCenterPlusOffset(_kmeans)
-
-        for ag_i in range(len(_in_arch)):
-
-            if ag_i%50==0:
-                print(f"processed {ag_i}/{len(_in_arch)}")
-
-            actions_idx_and_offset_repr=aacpo.transform(_in_arch[ag_i]._tau["action"])
-            assert (np.abs(aacpo.reverse(*(actions_idx_and_offset_repr))-_in_arch[ag_i]._tau["action"])<1e-7).all()
-            _in_arch[ag_i]._tau["action"]=actions_idx_and_offset_repr
-
-
-        with open(f"{_args.out_dir}/archive_transformed_actions.pkl","wb") as fl:
-            pickle.dump(_in_arch, fl)
-
+    
     if _args.check_dataset_intersections:
 
         with open(_args.check_dataset_intersections[0], "rb") as fl:
@@ -623,6 +637,8 @@ if __name__ == "__main__":
         print(f"there were {len(_intersections)} intersecting pairs")
         with open(f"{_args.out_dir}/duplicates.json","w") as fl:
             json.dump(_intersections,fl)
+
+
 
 
 
