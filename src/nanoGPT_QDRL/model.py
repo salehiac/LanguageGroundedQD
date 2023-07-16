@@ -295,16 +295,16 @@ class GPT_QDRL(nn.Module):
             word_token_embedding = nn.Embedding(config.vocab_size, config.n_embd), 
             word_pos_embedding = nn.Embedding(config.block_size, config.n_embd), 
             timestamp_embedding = nn.Embedding(1000, config.n_embd), #those are episode timesteps the 1000 here should be env.max_steps, TODO: don't hardcode that
-            bd_embedding=RLMLP(config.n_bd_dims, config.n_embd),
-            obs_embedding=RLMLP(config.n_obs_dims, config.n_embd),
+            bd_embedding=RLMLP(config.n_bd_dims, config.n_embd,dropout=self.config.dropout),
+            obs_embedding=RLMLP(config.n_obs_dims, config.n_embd,dropout=self.config.dropout),
             act_embedding=RLMLP(config.n_action_dims, config.n_embd),
             drop = nn.Dropout(config.dropout),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
             ln_f = LayerNorm(config.n_embd, bias=config.bias),
         ))
 
-        self.action_prediction_head_cluster_ids=RLMLP(config.n_embd,config.kmeans_obj.cluster_centers_.shape[0],scale_out_put=-1)
-        self.action_prediction_head_offsets=RLMLP(config.n_embd,config.kmeans_obj.cluster_centers_.shape[0]*config.n_action_dims,scale_out_put=-1)
+        self.action_prediction_head_cluster_ids=RLMLP(config.n_embd,config.kmeans_obj.cluster_centers_.shape[0],scale_out_put=-1,dropout=self.config.dropout)
+        self.action_prediction_head_offsets=RLMLP(config.n_embd,config.kmeans_obj.cluster_centers_.shape[0]*config.n_action_dims,scale_out_put=-1,dropout=self.config.dropout)
 
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -340,7 +340,8 @@ class GPT_QDRL(nn.Module):
             timestamp_tensor,
             generation_mode:bool,
             epoch:int=-1,
-            loss_type:str="multimodal_0"):
+            loss_type:str="multimodal_0",
+            generation_strategy="sample"):
         """
         Args
             word_idx (torch.tensor): token indexes as returned by the tokenizer, shape (B, T_{text})
@@ -353,6 +354,8 @@ class GPT_QDRL(nn.Module):
                                     val/test mode, as we still often want to compute the loss at each step for those splits. It could be seen as a special case of test mode.
             epoch (int): debug variable
             loss_type (str): only "multimodal_0" is available. MSS was completely stupid for this problem and was removed
+            generation_strategy (str): only used in generation mode, indicates whether the next action is sampled from the multimodal distribution or if it is its argmax. Valid values are
+                                       "argmax" and "sample".
         """
 
         BB=word_idx.shape[0]
@@ -415,14 +418,15 @@ class GPT_QDRL(nn.Module):
                 #cel=torch.nn.CrossEntropyLoss()
                 #term_1=cel(predicted_actions_scores.transpose(1,2), cluster_centers_ids.squeeze(-1))
 
-                #focal loss
+                ### focal term
                 proba_mat=torch.softmax(predicted_actions_scores,dim=-1)
                 gamma=3.0
                 
                 p_t=proba_mat.gather(2,cluster_centers_ids)
                 focal_vals=-((1-p_t)**gamma)*torch.log(p_t+1e-8)
                 term_1=focal_vals.mean()
-               
+              
+                ### MSE term
                 #Now fetch predicted offset for ground truth cluster ids and minimize their MSE
                 UU=predicted_actions_offsets # (BB, LL, num_clusters, act_dims)
                 VV=cluster_centers_ids.unsqueeze(-1) # (BB, LL, 1, 1)
@@ -441,7 +445,16 @@ class GPT_QDRL(nn.Module):
                 term_2_value=term_2.item()
 
 
-                see_tensor=torch.cat([act_tensor,predicted_actions],-1).detach().cpu().numpy()
+                ### accuracy
+                #we do the same as for the mse, but using predicted ground truth centers instead
+                argmax_act=predicted_actions_scores.argmax(dim=-1).reshape(BB,LL,1,1)
+                WW_acc=UU.gather(2, argmax_act.expand(-1,-1,-1,self.config.n_action_dims))
+                predicted_cluster_center_coords=torch.Tensor(self.config.kmeans_obj.cluster_centers_[argmax_act.squeeze(-1).cpu().detach().numpy(),:]).to(UU.device)
+                real_pred=predicted_cluster_center_coords+WW_acc
+
+                accuracy=((real_pred.squeeze(2)-act_tensor.round(decimals=1))**2).mean().item()
+
+                see_tensor=torch.cat([act_tensor,real_pred.squeeze(2)],-1).detach().cpu().numpy()
                 print(see_tensor)
 
             else:
@@ -451,14 +464,25 @@ class GPT_QDRL(nn.Module):
             loss=None
             term_1_value=None
             term_2_value=None
+            accuracy=None
             zz=xx[:,[obs_inds[-1]],:]
 
             #this softmax is kept as we want probabilities to sample from, not a loss
             predicted_actions_scores=torch.softmax(self.action_prediction_head_cluster_ids(zz),dim=-1)#(BB, LL, num_clusters)
 
             #sample clusters
-            sampled_act=torch.multinomial(predicted_actions_scores.reshape(-1,self.config.kmeans_obj.cluster_centers_.shape[0]),num_samples=BB)
-            sampled_act=sampled_act.reshape(BB,1,1)
+            if generation_strategy=="sample":
+                sampled_act=torch.multinomial(predicted_actions_scores.reshape(-1,self.config.kmeans_obj.cluster_centers_.shape[0]),num_samples=BB)
+                sampled_act=sampled_act.reshape(BB,1,1)
+            elif generation_strategy=="argmax":
+                sampled_act=predicted_actions_scores.argmax(dim=-1).reshape(BB,1,1)
+            else:
+                raise Exception("Unknown generation strategy")
+
+            #print("sampled_act==",sampled_act)
+            #import matplotlib.pyplot as plt
+            #plt.bar(range(16), predicted_actions_scores.reshape(16).detach().cpu().numpy())
+            #plt.show()
            
             #fetch corresponding offset predictions
             predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,
@@ -473,7 +497,7 @@ class GPT_QDRL(nn.Module):
             cluster_center_coords=torch.Tensor(self.config.kmeans_obj.cluster_centers_[sampled_act.squeeze(-1),:]).to(UU.device)
             predicted_actions=cluster_center_coords+WW.squeeze(2)
 
-        return predicted_actions, loss, term_1_value, term_2_value
+        return predicted_actions, loss, term_1_value, term_2_value, accuracy
 
     def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
         # start with all of the candidate parameters
@@ -578,7 +602,7 @@ class QDRLPolicy:
             bd_tensor=bd_tensor.round(decimals=1)#we do this in train, don't remove it here
 
 
-        predicted_actions, _ , _, _=self.model(
+        predicted_actions, _ , _, _, _=self.model(
                 word_idx=text_token_ids.to(self.device),
                 word_pos=text_posional_ids.to(self.device),
                 bd_tensor=bd_tensor.to(self.device),

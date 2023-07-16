@@ -49,11 +49,13 @@ def main_train(
     train_loss_hist=[]
     train_term_1_hist=[]
     train_term_2_hist=[]
+    train_acc_hist=[]
     val_loss_hist=[]
     val_term_1_hist=[]
     val_term_2_hist=[]
+    val_acc_hist=[]
     best_val_loss_idx=-1
-    best_val_loss=float("inf")
+    best_val_acc=float("inf")
     tqdm_epoch=tqdm.tqdm(range(cfg["max_epochs"]),desc="epochs")
 
     #train_loader_iter=iter(train_loader)
@@ -78,6 +80,7 @@ def main_train(
         train_loss_epc=[]
         train_term_1_epc=[]
         train_term_2_epc=[]
+        train_acc_epc=[]
         lr=MiscUtils.get_lr(it=num_train_steps,
                 warmup_iters=cfg["schedule"]["warmup_steps"],
                 lr_decay_iters=cfg["schedule"]["lr_decay_steps"],
@@ -103,7 +106,7 @@ def main_train(
                     device=_device,
                     input_normalizer=input_normalizer)
 
-            _, loss, term_1, term_2 =model(*processed_batch,generation_mode=False,epoch=epoch_i)
+            _, loss, term_1, term_2 , accuracy =model(*processed_batch,generation_mode=False,epoch=epoch_i)
             loss.backward()
             optimizer.step()
             num_train_steps+=1
@@ -111,12 +114,14 @@ def main_train(
             train_loss_epc.append(loss.item())
             train_term_1_epc.append(term_1)
             train_term_2_epc.append(term_2)
+            train_acc_epc.append(accuracy)
 
             if cfg["adamW"]["grad_clip"]!=0.0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), cfg["adamW"]["grad_clip"])
         train_loss_hist.append(np.mean(train_loss_epc))
         train_term_1_hist.append(np.mean(train_term_1_epc))
         train_term_2_hist.append(np.mean(train_term_2_epc))
+        train_acc_hist.append(np.mean(train_acc_epc))
         tqdm_epoch.set_postfix({"epoch loss":train_loss_hist[-1],"LR":lr})
 
  
@@ -127,6 +132,7 @@ def main_train(
                 val_loss_epc=[]
                 val_term_1_epc=[]
                 val_term_2_epc=[]
+                val_acc_epc=[]
                 for batch_val in tqdm.tqdm(val_loader,desc="epoch progress (val)",leave=False):
 
                     processed_batch_val=nanoGPT_QDRL.process_batch(
@@ -140,21 +146,25 @@ def main_train(
                         device=_device,
                         input_normalizer=input_normalizer)
                 
-                    _, loss_val, term_1_val, term_2_val=model(*processed_batch_val,generation_mode=False)
+                    _, loss_val, term_1_val, term_2_val, accuracy_val=model(*processed_batch_val,generation_mode=False)
                     val_loss_epc.append(loss_val.item())
                     val_term_1_epc.append(term_1_val)
                     val_term_2_epc.append(term_2_val)
+                    val_acc_epc.append(accuracy_val)
+                
                 val_loss_epc_mean=np.mean(val_loss_epc)
                 val_term_1_epc_mean=np.mean(val_term_1_epc)
                 val_term_2_epc_mean=np.mean(val_term_2_epc)
-                if val_loss_epc_mean<best_val_loss:
-                    best_val_loss=val_loss_epc_mean
+                val_acc_epc_mean=np.mean(val_acc_epc)
+                if val_acc_epc_mean<best_val_acc:
+                    best_val_acc=val_acc_epc_mean
                     best_val_loss_idx=epoch_i
         
         #we still add the val_loss_epc_mean even epoch_i%val_frequ!=0. This is just for display, so that we get the same number of inputs to plt.plot as for train, without interpolation
         val_loss_hist.append(val_loss_epc_mean)
         val_term_1_hist.append(val_term_1_epc_mean)
         val_term_2_hist.append(val_term_2_epc_mean)
+        val_acc_hist.append(val_acc_epc_mean)
        
         if best_val_loss_idx==epoch_i:
             torch.save(model,train_val_log_path+f"/model_{epoch_i}")
@@ -166,9 +176,11 @@ def main_train(
                     "train_loss":train_loss_hist,
                     "train_term_1":train_term_1_hist,
                     "train_term_2":train_term_2_hist,
+                    "train_acc_hist":train_acc_hist,
                     "val_loss": val_loss_hist,
                     "val_term_1":val_term_1_hist,
                     "val_term_2":val_term_2_hist,
+                    "val_acc_hist":val_acc_hist,
                     "epoch_with_best_val_loss": best_val_loss_idx,
                     "lr":lr
                     }
