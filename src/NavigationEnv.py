@@ -45,7 +45,7 @@ class NavigationEnv:
 
         self.bd_type=bd_type
         self.bd_extractor=GenericBD(dims=2,num=1)
-        self.dist_thresh=5 #(norm, in pixels) minimum distance that a point x in the population should have to its nearest neighbour in the archive+pop
+        self.dist_thresh=0.5 #(norm, in pixels) minimum distance that a point x in the population should have to its nearest neighbour in the archive+pop
         
         self.goal_radius=42
         self.display_goal=False

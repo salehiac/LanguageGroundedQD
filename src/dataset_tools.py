@@ -65,7 +65,7 @@ def generate_paper_dataset(logs_root="/tmp/"):
                                  hidden_dim=hidden_dim,
                                  output_normalisation=normalise_output_with)
 
-    eta = 10
+    eta = 5 
     low = -1.0
     up = 1.0
     indpb = 0.1
@@ -153,7 +153,7 @@ def cluster_actions(arch, num_clusters, read_clusters_from_file="", save_centers
     print('Cluster centers:\n', kmeans.cluster_centers_)
 
     if display:
-        sampled_actions=all_actions[:5000]
+        sampled_actions=all_actions[:50000]
         y_pred = kmeans.predict(sampled_actions)
 
         plt.scatter(sampled_actions[:, 0], sampled_actions[:, 1], c=y_pred)
@@ -238,7 +238,7 @@ if __name__ == "__main__":
             '--visualize_llm_description_and_behavior',
             type=int,
             default=-1,
-            help="index of individual for whose behavior space trajectory we want to visualize alongside the llm generated description")
+            help="if its value is a negative value N, then randomly samples and visualizes -N elements. if it's positive, then it is interpreted as an index in the archive, and only that element is visualized. Note however that -1 will be ignored.")
 
     _parser.add_argument(
             '--archive_info',
@@ -414,19 +414,27 @@ if __name__ == "__main__":
 
         if _args.visualize_llm_description_and_behavior!=-1:
 
-            _idx=_args.visualize_llm_description_and_behavior
-            scene = create_env_with_objects("./environment/")
+            ### negative inputs except -1 have the special meaning that -1*the_negative_input random samples will be displayed.
+
+            if _args.visualize_llm_description_and_behavior>=0:
+                _idx_lst=[_args.visualize_llm_description_and_behavior] 
+            else:
+                _num_s=-_args.visualize_llm_description_and_behavior
+                _idx_lst=np.random.choice(list(range(len(_in_arch))),_num_s,replace=False)
             
-            if not hasattr(_in_arch[_idx],"_llm_descr") or _in_arch[_idx]._llm_descr is None :
-                raise Exception(colored(f"Element {_idx} has not been described. See the input options for annotation archives and adding LLM descriptions","red",attrs=["bold"]))
+            scene = create_env_with_objects("./environment/")
+           
+            for _idx in _idx_lst:
+                if not hasattr(_in_arch[_idx],"_llm_descr") or _in_arch[_idx]._llm_descr is None :
+                    raise Exception(colored(f"Element {_idx} has not been described. See the input options for annotation archives and adding LLM descriptions","red",attrs=["bold"]))
 
-            fig,_=scene.display(display_bbox=False,
-                    hold_on=True,
-                    path2d_info=(_in_arch[_idx]._behavior, 600, 600))
+                fig,_=scene.display(display_bbox=False,
+                        hold_on=True,
+                        path2d_info=(_in_arch[_idx]._behavior, 600, 600))
 
-            fig.suptitle(MiscUtils.add_newlines(_in_arch[_idx]._llm_descr))
-            plt.tight_layout()
-            plt.show()
+                fig.suptitle(MiscUtils.add_newlines(_in_arch[_idx]._llm_descr))
+                plt.tight_layout()
+                plt.show()
 
         if _args.archive_info:
 

@@ -1,5 +1,5 @@
 ---
-train_model: True #if False, a pretrained model should be provided.
+train_model: False #if False, a pretrained model should be provided.
 test_model: False #
 deploy_in_env: True 
 model_cfg: 
@@ -53,12 +53,12 @@ deploy_cfg:
   prompts: "/tmp/logdir/prompt_file_test.json" 
 device: "cuda"
 dtype: "float32" 
-pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_2103775/model_810" #focal loss + dataset 1234
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_2103775/model_810" #focal loss + dataset 1234
 #pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_2151946/model_35" #focal loss + dataset 1234 from checkpoint with lr 1e-4
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_1619645/model_440" #trained with focal loss 
+pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_1619645/model_440" #trained with focal loss 
 #pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_1603178/model_215" #model to pretrain from, first one that I tested after implementing multimodal loss. (32 clusters)
 #pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_1239967/model_620" #model to pretrain from, first one that I tested after implementing multimodal loss. (32 clusters)
-deterministic: True
+deterministic: False
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"
 
