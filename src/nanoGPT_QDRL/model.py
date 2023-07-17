@@ -463,6 +463,8 @@ class GPT_QDRL(nn.Module):
                 see_tensor=torch.cat([act_tensor,action_pred],-1).detach().cpu().numpy()
                 print(see_tensor)
 
+                predicted_actions=None
+
             else:
                 raise Exception("Unknown loss type")
 
@@ -473,35 +475,40 @@ class GPT_QDRL(nn.Module):
             accuracy=None
             zz=xx[:,[obs_inds[-1]],:]
 
-            #this softmax is kept as we want probabilities to sample from, not a loss
-            predicted_actions_scores=torch.softmax(self.action_prediction_head_cluster_ids(zz),dim=-1)#(BB, LL, num_clusters)
+            sampled_acts=[]
+            for a_i in range(self.config.n_action_dims):
+                #this softmax is kept as we want probabilities to sample from, not a loss
+                predicted_actions_scores_i=torch.softmax(self.action_cluster_heads[a_i](zz),dim=-1)#(BB, LL, num_clusters_i)
 
-            #sample clusters
-            if generation_strategy=="sample":
-                sampled_act=torch.multinomial(predicted_actions_scores.reshape(-1,self.config.kmeans_obj.cluster_centers_.shape[0]),num_samples=BB)
-                sampled_act=sampled_act.reshape(BB,1,1)
-            elif generation_strategy=="argmax":
-                sampled_act=predicted_actions_scores.argmax(dim=-1).reshape(BB,1,1)
-            else:
-                raise Exception("Unknown generation strategy")
-
+                #sample clusters
+                if generation_strategy=="sample":
+                    sampled_act_i=torch.multinomial(predicted_actions_scores_i.reshape(-1,self.config.kmeans_obj_lst[a_i].cluster_centers_.shape[0]),num_samples=BB)
+                    sampled_act_i=sampled_act_i.reshape(BB,1,1)
+                elif generation_strategy=="argmax":
+                    sampled_act_i=predicted_actions_scores_i.argmax(dim=-1).reshape(BB,1,1)
+                else:
+                    raise Exception("Unknown generation strategy")
+                sampled_acts.append(sampled_act_i)
+            sampled_acts=torch.cat(sampled_acts,-1)
+            #fetch corresponding offset predictions
+            predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,1,self.num_clusters,-1)#(BB, LL, num_clusters, act_dims)
+            UU=predicted_actions_offsets
+            VV=sampled_acts.unsqueeze(-2) # (BB, 1, act_dims, 1)
+            WW=UU.gather(2, VV)
+            
             #print("sampled_act==",sampled_act)
             #import matplotlib.pyplot as plt
             #plt.bar(range(16), predicted_actions_scores.reshape(16).detach().cpu().numpy())
             #plt.show()
            
-            #fetch corresponding offset predictions
-            predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,
-                    1,
-                    self.config.kmeans_obj.cluster_centers_.shape[0],-1)#(BB, 1, num_clusters, act_dims)
-
-            UU=predicted_actions_offsets
-            VV=sampled_act.unsqueeze(-1) # (BB, 1, 1, 1)
-            WW=UU.gather(2, VV.expand(-1,-1,-1,self.config.n_action_dims))
-           
             #fetch corresponding center coordinates and predict action
-            cluster_center_coords=torch.Tensor(self.config.kmeans_obj.cluster_centers_[sampled_act.squeeze(-1),:]).to(UU.device)
-            predicted_actions=cluster_center_coords+WW.squeeze(2)
+            centers_pred=[]
+            for a_i in range(self.config.n_action_dims):
+                c_i=torch.Tensor(self.config.kmeans_obj_lst[a_i].cluster_centers_[sampled_acts[:,:,a_i].detach().cpu().numpy()]).to(UU.device)
+                centers_pred.append(c_i)
+           
+            centers_pred=torch.cat(centers_pred,-1)
+            predicted_actions=centers_pred+WW.squeeze(2)
 
         return predicted_actions, loss, term_1_value, term_2_value, accuracy
 
