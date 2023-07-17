@@ -71,8 +71,8 @@ class Agent(ABC):
         returns [textual_conditioning, step_by_step_inputs] with the second element a 1d tensor of shape (episode_len*M) with M=bd_dims+action_dims+obs_dims. 
         """
         text=copy.deepcopy(self._llm_descr)
-        
-        action_cluster_idx=torch.tensor(self._tau["action"][0]).reshape(-1,1)
+       
+        action_cluster_idx=torch.tensor(self._tau["action"][0])
         action_offsets=torch.tensor(self._tau["action"][1])
         obs=torch.tensor(self._tau["obs"])
         N=obs.shape[0]#episode length

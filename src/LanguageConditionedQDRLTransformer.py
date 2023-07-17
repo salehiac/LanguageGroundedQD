@@ -29,7 +29,7 @@ def main_train(
         tokenizer,
         input_normalizer,
         device,
-        kmeans,
+        kmeans_lst,
         log_dir):
     """
     train and validation
@@ -102,7 +102,7 @@ def main_train(
                     bd_dims=input_dims["bd"],
                     obs_dims=input_dims["obs"],
                     act_dims=input_dims["act"],
-                    kmeans=kmeans,
+                    kmeans_lst=kmeans_lst,
                     device=_device,
                     input_normalizer=input_normalizer)
 
@@ -142,7 +142,7 @@ def main_train(
                         bd_dims=input_dims["bd"],
                         obs_dims=input_dims["obs"],
                         act_dims=input_dims["act"],
-                        kmeans=kmeans,
+                        kmeans_lst=kmeans_lst,
                         device=_device,
                         input_normalizer=input_normalizer)
                 
@@ -198,7 +198,7 @@ def main_test(
         input_dims,
         tokenizer,
         input_normalizer,
-        kmeans,
+        kmeans_lst,
         device,
         log_dir):
     """
@@ -221,7 +221,7 @@ def main_test(
                     bd_dims=input_dims["bd"],
                     obs_dims=input_dims["obs"],
                     act_dims=input_dims["act"],
-                    kmeans=kmeans,
+                    kmeans_lst=kmeans_lst,
                     device=_device,
                     input_normalizer=input_normalizer)
 
@@ -294,7 +294,7 @@ if __name__=="__main__":
     torch.set_default_dtype(getattr(torch,_config["dtype"]))
     _device=torch.device("cpu") if not torch.cuda.is_available() else torch.device(_config["device"])
 
-    _kmeans=(lambda : (pickle.load(fl:=open(_config["model_cfg"]["kmeans"],"rb")),fl.close())[0])()
+    _kmeans_lst=(lambda : (pickle.load(fl:=open(_config["model_cfg"]["kmeans"],"rb")),fl.close())[0])()
     if _config["train_model"] or _config["test_model"]:
         #load train/val/test archives and create datasets/dataloaders
         _load_archs=lambda fn: (pickle.load(f:=open(fn,"rb")),f.close())[0]
@@ -344,7 +344,7 @@ if __name__=="__main__":
                 n_action_dims=_cmd_dims,
                 n_obs_dims=_obs_dims,
                 n_bd_dims=_bd_dims,
-                kmeans_obj=_kmeans
+                kmeans_obj_lst=_kmeans_lst
                 )
 
         _model=nanoGPT_QDRL.GPT_QDRL(_gpt_cfg)
@@ -370,7 +370,7 @@ if __name__=="__main__":
                 input_dims={"bd":_bd_dims, "obs":_obs_dims, "act":_cmd_dims},
                 tokenizer=_tokenizer,
                 input_normalizer=_input_normalizer,
-                kmeans=_kmeans,
+                kmeans_lst=_kmeans_lst,
                 device=_device,
                 log_dir=_config["logging"]["log_dir"])
     if _config["test_model"]:
@@ -382,7 +382,7 @@ if __name__=="__main__":
                 input_dims={"bd":_bd_dims, "obs":_obs_dims, "act":_cmd_dims},
                 tokenizer=_tokenizer,
                 input_normalizer=_input_normalizer,
-                kmeans=_kmeans,
+                kmeans_lst=_kmeans_lst,
                 device=_device,
                 log_dir=_config["logging"]["log_dir"])
 

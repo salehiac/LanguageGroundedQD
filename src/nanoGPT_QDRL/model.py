@@ -148,7 +148,7 @@ GPT_QDRLConfig=namedtuple("GPT_QDRLConfig",[
     "n_action_dims",#added for QD-RL
     "n_obs_dims",#added for QD-RL
     "n_bd_dims",#added for QD-RL
-    "kmeans_obj",
+    "kmeans_obj_lst",
     ])
 
    
@@ -160,7 +160,7 @@ def process_batch(
         obs_dims,
         act_dims,
         device,
-        kmeans,
+        kmeans_lst,
         input_normalizer=None,
         max_len_pad=226):
     """
@@ -184,7 +184,7 @@ def process_batch(
         bd_dims (int): length of behavior descriptors
         obs_dims (int): length of observations vector
         act_dims (int): length of action vector
-        kmeans (Mkeans): object encapsulating cluster center ids and their coordinates
+        kmeans_lst (List[Mkeans]): list of objects encapsulating cluster center ids and their coordinates
 
     Returns:
         (See the notes section below for the defintion of T_u.)
@@ -244,18 +244,14 @@ def process_batch(
     subsequence=traj_batch[:,jj:upper_bound,:]
 
 
+
     cluster_centers_ids=batch[2][:,jj:upper_bound,:]
-    cluster_center_coords=torch.Tensor(kmeans.cluster_centers_[cluster_centers_ids.squeeze(-1),:])
+    cluster_center_coords=torch.zeros(BB,NN,act_dims)
+    for a_i in range(act_dims):
 
-    dbg=True
-    if dbg:
-        zzz=[]
-        for iii in range(BB):
-            zzz.append(np.expand_dims(kmeans.cluster_centers_[batch[2][:,jj:upper_bound,:].squeeze(-1)[iii],:],0))
-        zzz=torch.Tensor(np.concatenate(zzz,0))
-        assert (cluster_center_coords==zzz).all(), "bug"
-
-
+        centers_i=kmeans_lst[a_i].cluster_centers_[cluster_centers_ids[:,:,a_i]]
+        cluster_center_coords[:,:,[a_i]]=torch.Tensor(centers_i)
+    
     bd_tensor=subsequence[:,:,:bd_dims]
     obs_tensor=subsequence[:,:,bd_dims:bd_dims+obs_dims]
     act_tensor=subsequence[:,:,bd_dims+obs_dims:bd_dims+obs_dims+act_dims] + cluster_center_coords
@@ -303,8 +299,14 @@ class GPT_QDRL(nn.Module):
             ln_f = LayerNorm(config.n_embd, bias=config.bias),
         ))
 
-        self.action_prediction_head_cluster_ids=RLMLP(config.n_embd,config.kmeans_obj.cluster_centers_.shape[0],scale_out_put=-1,dropout=self.config.dropout)
-        self.action_prediction_head_offsets=RLMLP(config.n_embd,config.kmeans_obj.cluster_centers_.shape[0]*config.n_action_dims,scale_out_put=-1,dropout=self.config.dropout)
+        self.action_cluster_heads=nn.ModuleList()
+        for a_i in range(self.config.n_action_dims):
+            self.action_cluster_heads.append(
+                    RLMLP(config.n_embd, config.kmeans_obj_lst[a_i].cluster_centers_.shape[0],scale_out_put=-1,dropout=self.config.dropout)
+                    )
+
+        self.num_clusters=np.prod([x.cluster_centers_.shape[0] for x in self.config.kmeans_obj_lst])
+        self.action_prediction_head_offsets=RLMLP(config.n_embd,self.num_clusters*config.n_action_dims,scale_out_put=-1,dropout=self.config.dropout)
 
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -405,56 +407,60 @@ class GPT_QDRL(nn.Module):
 
 
             zz=xx[:,obs_inds,:]
-            
+
+           
             if loss_type=="multimodal_0":
-                predicted_actions_scores=self.action_prediction_head_cluster_ids(zz) #(BB, LL, num_clusters)
-                predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,
-                        LL,
-                        self.config.kmeans_obj.cluster_centers_.shape[0],-1)#(BB, LL, num_clusters, act_dims)
 
-                #crossentropy loss between predicted cluster probabilities and ground truth cluster ids.
-                #note that it does the softmax itself (along the class dimension)
-                #Ok let's turn it into focal loss instead
-                #cel=torch.nn.CrossEntropyLoss()
-                #term_1=cel(predicted_actions_scores.transpose(1,2), cluster_centers_ids.squeeze(-1))
-
-                ### focal term
-                proba_mat=torch.softmax(predicted_actions_scores,dim=-1)
-                gamma=3.0
+                #### focal term
+                term_1=0
+                argmax_actions=[]#for accuracy computation
+                for a_i in range(self.config.n_action_dims):
                 
-                p_t=proba_mat.gather(2,cluster_centers_ids)
-                focal_vals=-((1-p_t)**gamma)*torch.log(p_t+1e-8)
-                term_1=focal_vals.mean()
-              
-                ### MSE term
-                #Now fetch predicted offset for ground truth cluster ids and minimize their MSE
+                    #### focal term i
+                    predicted_actions_scores_i=self.action_cluster_heads[a_i](zz) #(BB,LL,num_clusters)
+                    gamma=3.0
+                    proba_mat_i=torch.softmax(predicted_actions_scores_i,dim=-1)
+                    p_t_i=proba_mat_i.gather(2,cluster_centers_ids[:,:,[a_i]])
+                    focal_vals_i=-((1-p_t_i)**gamma)*torch.log(p_t_i+1e-8)
+                    term_1+=focal_vals_i.mean()
+
+                    #bookkeeping for accuracy metric
+                    argmax_act_i=predicted_actions_scores_i.argmax(dim=-1).reshape(BB,LL,1)
+                    argmax_actions.append(argmax_act_i)
+          
+
+                #### MSE term
+                predicted_actions_offsets=self.action_prediction_head_offsets(zz).reshape(BB,LL,self.num_clusters,-1)#(BB, LL, num_clusters, act_dims)
+
+                #fetch predicted offset for ground truth cluster ids and minimize their MSE
                 UU=predicted_actions_offsets # (BB, LL, num_clusters, act_dims)
-                VV=cluster_centers_ids.unsqueeze(-1) # (BB, LL, 1, 1)
-
-                #We want a tensor WW of shape (BB, LL, 1, act_dims), such that WW[i,j,k,l]=UU[i,j, VV[i,j,k,l], l]. Note that this limits the range of k to [0, VV.shape[2]] and similarly 
-                #for l which is limited to [0, VV.shape[3]). This is what we want for k, but not for l (as we want act_dims outputs per selected cluster. Therefore, we need to replicate
-                #VV along its last axis
-                WW=UU.gather(2, VV.expand(-1,-1,-1,self.config.n_action_dims))
-                
-                predicted_actions=cluster_center_coords+WW.squeeze(2)
-                term_2=((predicted_actions-act_tensor.round(decimals=1))**2).mean()#same as MSELoss with "mean" reduction
+                VV=cluster_centers_ids.unsqueeze(-2) # (BB, LL, 1, act_dims)
+                WW=UU.gather(2, VV)
+               
+                hat_act=cluster_center_coords+WW.squeeze(-2)
+                term_2=((hat_act-act_tensor.round(decimals=1))**2).mean()#same as MSELoss with "mean" reduction
 
                 loss=term_1+term_2
 
                 term_1_value=term_1.item()
                 term_2_value=term_2.item()
 
-
                 ### accuracy
                 #we do the same as for the mse, but using predicted ground truth centers instead
-                argmax_act=predicted_actions_scores.argmax(dim=-1).reshape(BB,LL,1,1)
-                WW_acc=UU.gather(2, argmax_act.expand(-1,-1,-1,self.config.n_action_dims))
-                predicted_cluster_center_coords=torch.Tensor(self.config.kmeans_obj.cluster_centers_[argmax_act.squeeze(-1).cpu().detach().numpy(),:]).to(UU.device)
-                real_pred=predicted_cluster_center_coords+WW_acc
+                argmax_actions=torch.cat(argmax_actions,2) # (BB, LL, act_dims)
+                WW_acc=UU.gather(2, argmax_actions.unsqueeze(-2))
+             
+                centers_pred=[]
+                for a_i in range(self.config.n_action_dims):
+                    center_i=torch.Tensor(self.config.kmeans_obj_lst[a_i].cluster_centers_[argmax_actions[:,:,a_i].detach().cpu().numpy()]).to(UU.device)
+                    centers_pred.append(center_i)
 
-                accuracy=((real_pred.squeeze(2)-act_tensor.round(decimals=1))**2).mean().item()
+                centers_pred=torch.cat(centers_pred,-1)
+                action_pred=centers_pred+WW_acc.squeeze(-2)
 
-                see_tensor=torch.cat([act_tensor,real_pred.squeeze(2)],-1).detach().cpu().numpy()
+                accuracy=((action_pred.squeeze(2)-act_tensor.round(decimals=1))**2).mean().item()
+
+                see_tensor=torch.cat([act_tensor,action_pred],-1).detach().cpu().numpy()
                 print(see_tensor)
 
             else:

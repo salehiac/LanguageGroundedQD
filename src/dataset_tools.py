@@ -12,6 +12,7 @@ from wordcloud import WordCloud
 from collections import Counter 
 from typing import List, Any, Literal
 from sklearn.cluster import KMeans
+import matplotlib.colors as mcolors
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -131,7 +132,7 @@ class ArchDataset(Dataset):
         return DataLoader(self, batch_size=batch_size, shuffle=True if self.split=="train" else False)
 
 
-def cluster_actions(arch, num_clusters, read_clusters_from_file="", save_centers_to="/tmp/", display=True):
+def cluster_actions(per_dim:bool, arch, num_clusters:list, read_clusters_from_file="", save_centers_to="/tmp/", display=True):
 
 
     all_actions=[]
@@ -143,28 +144,76 @@ def cluster_actions(arch, num_clusters, read_clusters_from_file="", save_centers
     all_actions=np.concatenate(all_actions, 0)
     np.random.shuffle(all_actions)
 
-    if not read_clusters_from_file:
-        kmeans = KMeans(n_clusters=num_clusters, random_state=0).fit(all_actions)
+    if not per_dim:
+        if not read_clusters_from_file:
+            kmeans = KMeans(n_clusters=num_clusters[0], random_state=0).fit(all_actions)
+        else:
+            print("loading cluster centers from ",read_clusters_from_file)
+            with open(read_clusters_from_file,"rb") as fl:
+                kmeans=pickle.load(fl)
+
+        print('Cluster centers:\n', kmeans.cluster_centers_)
+
+        if display:
+            sampled_actions=all_actions[:50000]
+            y_pred = kmeans.predict(sampled_actions)
+
+            plt.scatter(sampled_actions[:, 0], sampled_actions[:, 1], c=y_pred)
+            plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=300, c='red') # cluster centers
+            plt.show()
+
+        if save_centers_to and not read_clusters_from_file:
+            with open(f"{save_centers_to}/cluster_centers.pkl","wb") as fl:
+                pickle.dump(kmeans,fl)
+
+        return [kmeans]
+
     else:
-        print("loading cluster centers from ",read_clusters_from_file)
-        with open(read_clusters_from_file,"rb") as fl:
-            kmeans=pickle.load(fl)
 
-    print('Cluster centers:\n', kmeans.cluster_centers_)
+        if read_clusters_from_file:
+            print("loading cluster centers from ",read_clusters_from_file)
+            with open(read_clusters_from_file,"rb") as fl:
+                kmeans_lst=pickle.load(fl)
 
-    if display:
-        sampled_actions=all_actions[:50000]
-        y_pred = kmeans.predict(sampled_actions)
+        else:
+            action_dims=all_actions.shape[1]
+            kmeans_lst=[]
+            assert len(num_clusters)==action_dims, "there should be K_i clusters for action dim a_i"
+            for d_i in range(action_dims):
+                kmeans_i=KMeans(n_clusters=num_clusters[d_i],random_state=0).fit(all_actions[:,d_i].reshape(-1,1))
+                kmeans_lst.append(kmeans_i)
 
-        plt.scatter(sampled_actions[:, 0], sampled_actions[:, 1], c=y_pred)
-        plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=300, c='red') # cluster centers
-        plt.show()
+        if display:#only works for 2d
+            mm=kmeans_lst[0]
+            nn=kmeans_lst[1]
+            xxx,yyy=np.meshgrid(mm.cluster_centers_,nn.cluster_centers_)
+            xxx=xxx.reshape(1,-1)
+            yyy=yyy.reshape(1,-1)
+           
+            plt.plot(xxx,yyy,"ro")
+           
+            #display sampled pts
+            sampled_actions=all_actions[:50000]
+            y_pred_mm=mm.predict(sampled_actions[:,[0]]) #list of indexes in 0, ..., num_clusters_0-1
+            y_pred_nn=nn.predict(sampled_actions[:,[1]]) #list of indexes in 0, ..., num_clusters_1-1
 
-    if save_centers_to and not read_clusters_from_file:
-        with open(f"{save_centers_to}/cluster_centers.pkl","wb") as fl:
-            pickle.dump(kmeans,fl)
+            y_pred_2d=list(zip(y_pred_nn, y_pred_mm))
 
-    return kmeans
+            colormap = mcolors.ListedColormap(np.random.rand(256,3))
+            y_colors=list(map(lambda x: num_clusters[1]*x[0]+x[1], y_pred_2d))
+
+            plt.scatter(sampled_actions[:, 0], sampled_actions[:, 1], c=y_colors,cmap=colormap)
+            plt.show()
+
+        if save_centers_to and not read_clusters_from_file:
+            with open(f"{save_centers_to}/cluster_centers.pkl","wb") as fl:
+                pickle.dump(kmeans_lst,fl)
+
+
+        return kmeans_lst
+
+
+
 
 
 class ActionAsCenterPlusOffset:
@@ -183,6 +232,41 @@ class ActionAsCenterPlusOffset:
 
         actions=self.kmeans.cluster_centers_[cluster_ids]+offsets
         return actions
+
+class ActionAsCenterPlusOffsetPerDim:
+    
+    def __init__(self, kmeans_lst):
+        self.kmeans_lst=kmeans_lst
+
+    def transform(self, actions):
+
+        dims=len(self.kmeans_lst)
+        assert dims==actions.shape[1]
+        offsets=np.zeros_like(actions)
+        cluster_ids=np.zeros_like(actions).astype("long")
+        for a_i in range(dims):
+
+            pred_i=self.kmeans_lst[a_i].predict(actions[:,[a_i]])#cluster indexes, should be of size (actions.shape[0],)
+            centers_i=self.kmeans_lst[a_i].cluster_centers_[pred_i]
+
+            offsets[:,[a_i]]=actions[:,[a_i]]-centers_i
+            cluster_ids[:,a_i]=pred_i
+
+        return cluster_ids, offsets
+
+    def reverse(self, cluster_ids, offsets):
+
+        dims=len(self.kmeans_lst)
+        assert dims==offsets.shape[1]
+        assert dims==cluster_ids.shape[1]
+        actions=np.zeros_like(offsets)
+        for a_i in range(dims):
+            center_i=self.kmeans_lst[a_i].cluster_centers_[cluster_ids[:,a_i]]
+            actions[:,[a_i]]=center_i+offsets[:,[a_i]]
+
+        return actions
+
+
 
 
 if __name__ == "__main__":
@@ -292,8 +376,8 @@ if __name__ == "__main__":
     _parser.add_argument(
             "--prepare_actions_for_multimodal",
             type=int,
-            default=-1,
-            help="If prepare_actions_for_multimodal!=-1, then performs k-means with prepare_actions_for_multimodal centroids, and expresses each action as an index and an offset.")
+            nargs="*",
+            help="If prepare_actions_for_multimodal is not None, then performs k-means with prepare_actions_for_multimodal centroids, and expresses each action as an index and an offset. If only one arg N is passed, kmeans is performed jointly across all action dims. If multiple values are provided, it is assumed that they each correspond to an action dim and a kmeans clustering will be performed for each action dimension.")
 
     _parser.add_argument(
             "--read_kmeans_from_file",
@@ -561,27 +645,52 @@ if __name__ == "__main__":
             with open(f"{_args.out_dir}/filtered_archive.pkl","wb") as fl:
                 pickle.dump(_arch_filtered,fl)
 
-        if _args.prepare_actions_for_multimodal!=-1:
+        if _args.prepare_actions_for_multimodal:
 
             _kmeans_file=_args.read_kmeans_from_file if _args.read_kmeans_from_file else ""
 
-            _kmeans=cluster_actions(_in_arch,num_clusters=_args.prepare_actions_for_multimodal,read_clusters_from_file=_kmeans_file)
+            if len(_args.prepare_actions_for_multimodal)==1:
+                _kmeans=cluster_actions(
+                        per_dim=False,
+                        arch=_in_arch,
+                        num_clusters=_args.prepare_actions_for_multimodal,
+                        read_clusters_from_file=_kmeans_file)[0]
 
-            aacpo=ActionAsCenterPlusOffset(_kmeans)
+                aacpo=ActionAsCenterPlusOffset(_kmeans)
 
-            for ag_i in range(len(_in_arch)):
+                for ag_i in range(len(_in_arch)):
 
-                if ag_i%50==0:
-                    print(f"processed {ag_i}/{len(_in_arch)}")
+                    if ag_i%50==0:
+                        print(f"processed {ag_i}/{len(_in_arch)}")
 
-                actions_idx_and_offset_repr=aacpo.transform(_in_arch[ag_i]._tau["action"])
-                assert (np.abs(aacpo.reverse(*(actions_idx_and_offset_repr))-_in_arch[ag_i]._tau["action"])<1e-7).all()
-                _in_arch[ag_i]._tau["action"]=actions_idx_and_offset_repr
+                    actions_idx_and_offset_repr=aacpo.transform(_in_arch[ag_i]._tau["action"])
+                    assert (np.abs(aacpo.reverse(*(actions_idx_and_offset_repr))-_in_arch[ag_i]._tau["action"])<1e-7).all()
+                    _in_arch[ag_i]._tau["action"]=actions_idx_and_offset_repr
 
 
-            with open(f"{_args.out_dir}/archive_transformed_actions.pkl","wb") as fl:
-                pickle.dump(_in_arch, fl)
+                with open(f"{_args.out_dir}/archive_transformed_actions.pkl","wb") as fl:
+                    pickle.dump(_in_arch, fl)
 
+            else:
+                _kmeans_lst=cluster_actions(
+                        per_dim=True,
+                        arch=_in_arch,
+                        num_clusters=_args.prepare_actions_for_multimodal,
+                        read_clusters_from_file=_kmeans_file)###_kmeans_lst will be a list length act_dim, with _kmeans_lst[i] a KMeans object
+                
+                aacpo_pd=ActionAsCenterPlusOffsetPerDim(_kmeans_lst)
+
+                for ag_i in range(len(_in_arch)):
+
+                    if ag_i%50==0:
+                        print(f"processed {ag_i}/{len(_in_arch)}")
+
+                    idx_and_offset=aacpo_pd.transform(_in_arch[ag_i]._tau["action"])
+                    assert (np.abs(aacpo_pd.reverse(*(idx_and_offset))-_in_arch[ag_i]._tau["action"])<1e-7).all()
+                    _in_arch[ag_i]._tau["action"]=idx_and_offset
+
+                with open(f"{_args.out_dir}/archive_transformed_actions.pkl","wb") as fl:
+                    pickle.dump(_in_arch, fl)
 
         if _args.shuffle_archive:
 
