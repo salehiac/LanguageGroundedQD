@@ -427,6 +427,8 @@ class GPT_QDRL(nn.Module):
                     #bookkeeping for accuracy metric
                     argmax_act_i=predicted_actions_scores_i.argmax(dim=-1).reshape(BB,LL,1)
                     argmax_actions.append(argmax_act_i)
+                
+                term_1/=float(self.config.n_action_dims)
           
 
                 #### MSE term
@@ -438,7 +440,16 @@ class GPT_QDRL(nn.Module):
                 WW=UU.gather(2, VV)
                
                 hat_act=cluster_center_coords+WW.squeeze(-2)
-                term_2=((hat_act-act_tensor.round(decimals=1))**2).mean()#same as MSELoss with "mean" reduction
+                
+                diff=hat_act-act_tensor.round(decimals=1)
+
+                
+                #err_thresh=0.05
+                #mask=torch.abs(diff)>err_thresh
+                #filtered_diff=mask*diff
+                #term_2=(filtered_diff**2).mean()#same as MSELoss with "mean" reduction
+                
+                term_2=(diff**2).mean()#same as MSELoss with "mean" reduction
 
                 loss=term_1+term_2
 
@@ -458,7 +469,12 @@ class GPT_QDRL(nn.Module):
                 centers_pred=torch.cat(centers_pred,-1)
                 action_pred=centers_pred+WW_acc.squeeze(-2)
 
-                accuracy=((action_pred.squeeze(2)-act_tensor.round(decimals=1))**2).mean().item()
+                diff_ac=action_pred.squeeze(2)-act_tensor.round(decimals=1)
+                
+                #mask_acc=torch.abs(diff_ac)>err_thresh
+                #filtered_diff_acc=mask_acc*diff_ac
+                #accuracy=(filtered_diff_acc**2).mean().item()
+                accuracy=(diff_ac**2).mean().item()
 
                 see_tensor=torch.cat([act_tensor,action_pred],-1).detach().cpu().numpy()
                 print(see_tensor)

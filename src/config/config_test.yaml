@@ -8,7 +8,7 @@ model_cfg:
   block_size: 1435 #In the current dataset, the max token length is 226, and the toy env's episode length is 400 (=>1200 tokens), so block_size needs only be larger than 1426.
   n_layer: 2
   n_head: 4
-  n_embd:  200 # don't forget that those will be divided between the heads, so if the embedding is of size 40 and you have 4 heads, it's 10 featurs for each which is sort of riddiculous
+  n_embd:  280 # don't forget that those will be divided between the heads, so if the embedding is of size 40 and you have 4 heads, it's 10 featurs for each which is sort of riddiculous
   bias: 0 #the original nanoGPT code says that turning it off produces better results
   dropout_p: 0.1 #nanoGPT original code says 0.0 is good for pre-training, 0.1 is good for fine-tuning
 input_normalization:
@@ -16,20 +16,21 @@ input_normalization:
   env_type: "navigation_env" #only needed if the normalize dict above has keys that are True. Currenlty, the only available choice in 'navigation_env'
 train_cfg:
   #data_path_train: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/10_8/merged_12345/archive_transformed_actions_train.pkl"
-  data_path_train: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/10_8/merged_12345/archive_transformed_actions_val.pkl"
+  data_path_train: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/10_8/merged_12345/archive_transformed_actions_train.pkl"
   data_path_val: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/10_8/merged_12345/archive_transformed_actions_val.pkl"
   max_epochs: 5000 # total number of training iterations
   val_frequ: 5 #compute validation loss only every val_frequ iterations
-  batch_size: 35
+  batch_size: 30
   adamW: 
       learning_rate : 5e-3 # max learning rate 
+      #learning_rate : 1e-4 # max learning rate 
       weight_decay : 1e-1
       beta1 : 0.9
       beta2 : 0.95
       grad_clip : 0.0 # clip gradients at this value, or disable if == 0.0
   schedule:
     decay_lr: True 
-    lr_decay_steps : 700000 # 
+    lr_decay_steps : 100000 # 
     warmup_steps: 1000 # how many steps to warm up for
     min_lr : 5e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 test_cfg:
@@ -45,6 +46,8 @@ deploy_cfg:
 device: "cuda"
 dtype: "float32" 
 pretrained_model: ""
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_2071064/model_95" #new model continuing from the one below but with masked loss that removes unnecessary decimals
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_2037622/model_295" #new model trained on dataset_1234 with per dim kmeans 
 deterministic: False
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"
