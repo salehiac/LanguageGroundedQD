@@ -43,13 +43,14 @@ deploy_cfg:
   #the file should contain a List[List] prompt_lst, such that prompt_lst[i]=[textual_conditioning, bd_0, ..., bd_n] for n-dimensional bds
   #use --export_as_prompt_list from data_tools.py
   prompts: "/tmp/logdir/prompt_file_test.json" 
+  generation_strategy: "sample" #choices are 'sample', 'argmax' and 'nucleus'. For now, 'sample' seems to perform better. Also note the temperature param hardcoded in the code (it is left to 1.0)
 device: "cuda"
 dtype: "float32" 
 pretrained_model: ""
-#Even larger model trained with normalized (per dim) focal loss from scratch, no masking, with per dim kmeans. I haven't depolyed it yet, but its stats are better than the previous one (loss and acc)
+#medium sized model, with n_embd 320 (doesn't work as well as the largest model. However, note that we used more dropout with it too (0.2 instead of 0.1)
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_2179516/model_595"
+#Even larger model (n_emb 360) trained with normalized (per dim) focal loss from scratch, no masking, with per dim kmeans. Best stats overall
 #pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_2110830/model_510"
-#larger model trained with normalized (per dim) focal loss from scratch, no masking, with per dim kmeans. It generalizes alright, around 43%
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_2085845/model_180" 
-deterministic: False
+seed: 127
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"

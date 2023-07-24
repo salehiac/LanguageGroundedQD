@@ -39,6 +39,7 @@ Run the following commands, using the archive generated at each step as input to
 python3 dataset_tools.py --generate_archive --out_dir <some_path> 
 python3 dataset_tools.py --fix_duplicates
            blabal        --filter_bds #optional
+           blabla        --shuffle #optional
 python3 dataset_tools.py --input_archive <generated_archive> --annotate_archive --out_dir <some_path/annotated_archive>
 python3 dataset_tools.py --export_annotations --out_dir <annotations_dir>
 ```

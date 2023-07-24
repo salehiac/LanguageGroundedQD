@@ -8,6 +8,7 @@ from collections import namedtuple
 from typing import Literal, List
 import pdb
 import numpy as np
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -492,16 +493,36 @@ class GPT_QDRL(nn.Module):
             zz=xx[:,[obs_inds[-1]],:]
 
             sampled_acts=[]
+            temperature=1.0
+
+            #print(colored(f"generation_strategy={generation_strategy}","magenta",attrs=["bold"]))
             for a_i in range(self.config.n_action_dims):
                 #this softmax is kept as we want probabilities to sample from, not a loss
-                predicted_actions_scores_i=torch.softmax(self.action_cluster_heads[a_i](zz),dim=-1)#(BB, LL, num_clusters_i)
+                predicted_actions_scores_i=torch.softmax(self.action_cluster_heads[a_i](zz)/temperature,dim=-1)#(BB, LL, num_clusters_i)
 
                 #sample clusters
                 if generation_strategy=="sample":
                     sampled_act_i=torch.multinomial(predicted_actions_scores_i.reshape(-1,self.config.kmeans_obj_lst[a_i].cluster_centers_.shape[0]),num_samples=BB)
                     sampled_act_i=sampled_act_i.reshape(BB,1,1)
+
+                    #print("sampled_act_i==",sampled_act_i)
+                    #plt.bar(range(predicted_actions_scores_i.shape[-1]), predicted_actions_scores_i.flatten().detach().cpu().numpy())
+                    #plt.show()
                 elif generation_strategy=="argmax":
                     sampled_act_i=predicted_actions_scores_i.argmax(dim=-1).reshape(BB,1,1)
+                elif generation_strategy=="nucleus":
+                    decreasing_scores_idx=predicted_actions_scores_i.flatten().argsort(descending=True).tolist()
+                    target_mass=0.95
+                    cur_mass=0
+                    chosen_inds=[]
+                    for s_i in decreasing_scores_idx:
+                        chosen_inds.append(s_i)
+                        cur_mass+=predicted_actions_scores_i[0, 0, s_i]
+                        if cur_mass>=target_mass:
+                            break
+                    #pdb.set_trace()
+                    sampled_act_i=chosen_inds[torch.multinomial(predicted_actions_scores_i[:,:,chosen_inds].flatten()/predicted_actions_scores_i.sum(),num_samples=BB).item()]
+                    sampled_act_i=torch.Tensor([sampled_act_i]).reshape(BB,1,1).to(predicted_actions_scores_i.device).long()
                 else:
                     raise Exception("Unknown generation strategy")
                 sampled_acts.append(sampled_act_i)
@@ -512,10 +533,6 @@ class GPT_QDRL(nn.Module):
             VV=sampled_acts.unsqueeze(-2) # (BB, 1, act_dims, 1)
             WW=UU.gather(2, VV)
             
-            #print("sampled_act==",sampled_act)
-            #import matplotlib.pyplot as plt
-            #plt.bar(range(16), predicted_actions_scores.reshape(16).detach().cpu().numpy())
-            #plt.show()
            
             #fetch corresponding center coordinates and predict action
             centers_pred=[]
@@ -562,6 +579,7 @@ class QDRLPolicy:
             tokenizer,
             device,
             input_normalizer=None,
+            generation_strategy="sample",
             max_len_pad=226):
         
         self.model=model
@@ -571,6 +589,7 @@ class QDRLPolicy:
         self.traj_window=None
         self.traj_start_timestamp=0
         self.max_len_pad=max_len_pad
+        self.generation_strategy=generation_strategy
     
     def reset(self, prompt_text, prompt_bd):
        
@@ -640,7 +659,8 @@ class QDRLPolicy:
                 cluster_centers_ids=None,#this will be predicted
                 cluster_center_coords=None,#also predicted
                 timestamp_tensor=traj_timestamps.to(self.device),
-                generation_mode=True)
+                generation_mode=True,
+                generation_strategy=self.generation_strategy)
 
         self.traj_window[-1,-2:]=predicted_actions
 

@@ -281,9 +281,9 @@ if __name__=="__main__":
     with open(_args.config,"r") as fl:
         _config=yaml.load(fl,Loader=yaml.FullLoader)
 
-    if _config["deterministic"]:
-        _seed=127
-        print(colored(f"'deterministic' was set to True in the config file, setting seed to {_seed}","magenta",attrs=["bold"]))
+    if _config["seed"]:
+        _seed=_config["seed"]
+        print(colored(f"setting seed to {_seed} as specified in the config file","magenta",attrs=["bold"]))
         torch.manual_seed(_seed)
         np.random.seed(_seed)
         random.seed(_seed)
@@ -401,12 +401,14 @@ if __name__=="__main__":
                 _model,
                 tokenizer=_tokenizer,
                 device=_device,
-                input_normalizer=_input_normalizer)
+                input_normalizer=_input_normalizer,
+                generation_strategy=_config["deploy_cfg"]["generation_strategy"])
 
         scene = create_env_with_objects("./environment/")
 
         num_prompts=0
         basename="/tmp/traj_dir/"
+        #basename="/home/achkan//Desktop/traj_dir_model_large/"
         for prompt in prompt_lst:
 
             generate_traj(
