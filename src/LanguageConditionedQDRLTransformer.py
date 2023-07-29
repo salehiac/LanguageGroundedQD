@@ -236,13 +236,24 @@ def main_test(
         plt.title(np.mean(test_loss))
         plt.show()
 
-def generate_traj(prompt,idx, basename, bd_dims, policy, nav_env, scene):
+def generate_traj(
+        prompt,
+        idx,
+        basename,
+        bd_dims, 
+        policy,
+        nav_env,
+        scene,
+        ablate_text:bool,
+        ablate_bd:bool):
 
 
     out_fn_fig=f"{basename}/fig_{idx}.png"
     out_fn_prompt_annotation_pairs=f"{basename}/pair_{idx}.json"
-    bds_lst=prompt[1:1+bd_dims]
-    policy.reset(prompt_text=prompt[0],
+    out_fn_bds=f"{basename}/bds_{idx}.json"
+    bds_lst=prompt[1:1+bd_dims] if not ablate_bd else [0,0]
+    prompt_text=prompt[0] if not ablate_text else ""
+    policy.reset(prompt_text=prompt_text,
             prompt_bd=torch.tensor(bds_lst).reshape(1,2))
 
     (fitness,
@@ -259,15 +270,34 @@ def generate_traj(prompt,idx, basename, bd_dims, policy, nav_env, scene):
     annotation = scene.annotate_traj(
             behavior2d_np, real_w=600, real_h=600, step=40)
 
-    fig.suptitle(MiscUtils.add_newlines(prompt[0]+f"\n BDs={[x//3 for x in bds_lst]}"))
+    fig.suptitle(MiscUtils.add_newlines(prompt_text+f"\n BDs={[x//3 for x in bds_lst]}"))
     plt.tight_layout()
     plt.savefig(out_fn_fig)
     plt.close()
 
+    #pdb.set_trace()
     with open(out_fn_prompt_annotation_pairs, "w") as fl:
-        json.dump({"prompt":prompt[0], "predicted_traj_annotation": annotation},fl)
+        json.dump({"prompt":prompt_text, "predicted_traj_annotation": annotation},fl)
+
+    with open(out_fn_bds,"w") as fl:
+        #the factor of 3 is because the env is 200x200 but bds are in 600x600
+        json.dump({
+            "target_bds":[x/3 for x in bds_lst],
+            "reached_bds":(bd.reshape(2)/3).tolist(),
+            "dist":np.linalg.norm(np.array(bds_lst)/3-bd.reshape(2)/3)
+            },fl)
+   
+    print("Dist to target bd==",np.linalg.norm(np.array(bds_lst)/3-bd.reshape(2)/3))
     
-    print(f"wrote to {out_fn_fig}, {out_fn_prompt_annotation_pairs}")
+    print(f"wrote to {out_fn_fig}, {out_fn_prompt_annotation_pairs}, {out_fn_bds}")
+
+
+def ablate_prompt(arch):
+
+    N=len(arch)
+    for ii in range(N):
+
+        arch[ii]._llm_descr=""
 
 
 
@@ -303,8 +333,14 @@ if __name__=="__main__":
         _arch_test_path=_config["test_cfg"]["data_path"]
         _arch_train, _arch_val, _arch_test=[_load_archs(x) for x in [_arch_train_path, _arch_val_path, _arch_test_path]]
 
-        #_arch_train=_arch_train[:600]
-        #_arch_val=_arch_train
+        if _config["train_cfg"]["ablate_prompt"]:
+            print(colored("Ablating prompts for training and validation","red",attrs=["bold"]))
+            ablate_prompt(_arch_train)
+            ablate_prompt(_arch_val)
+        if _config["test_cfg"]["ablate_prompt"]:
+            print(colored("Ablating prompts for testing split","red",attrs=["bold"]))
+            ablate_prompt(_arch_test)
+
 
         assert isinstance(_arch_train[0]._tau["action"],tuple), "please first expresset the actions using kmeans representation (see data_tools.py)"
         _cmd_dims=_arch_train[0]._tau["action"][1].shape[1]
@@ -319,6 +355,9 @@ if __name__=="__main__":
 
         _test_dataset=ArchDataset(_arch_test,split="test")
         _test_loader=_test_dataset.make_data_loader(batch_size=_config["test_cfg"]["batch_size"])
+
+
+            
 
     #load tokenizer and create/load model
     _tokenizer=PreTrainedTokenizerFast.from_pretrained(_config["model_cfg"]["learned_tokenizer"])
@@ -407,8 +446,8 @@ if __name__=="__main__":
         scene = create_env_with_objects("./environment/")
 
         num_prompts=0
-        basename="/tmp/traj_dir/"
-        #basename="/home/achkan//Desktop/traj_dir_model_large/"
+        #basename="/tmp/traj_dir/"
+        basename="/home/achkan//Desktop/traj_dir_tmp/"
         for prompt in prompt_lst:
 
             generate_traj(
@@ -418,7 +457,9 @@ if __name__=="__main__":
                     _nav_env.get_bd_dims(),
                     policy,
                     _nav_env,
-                    scene)
+                    scene,
+                    ablate_text=_config["deploy_cfg"]["ablate_text"],
+                    ablate_bd=_config["deploy_cfg"]["ablate_bd"])
             num_prompts+=1
 
         #batch_size=4
