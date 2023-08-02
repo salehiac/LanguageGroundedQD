@@ -4,22 +4,22 @@ test_model: False #
 deploy_in_env: True 
 model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_hz7RY06aNX"
-  kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_10_8.pkl"
+  kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_6_5.pkl"
   block_size: 1435 #In the current dataset, the max token length is 226, and the toy env's episode length is 400 (=>1200 tokens), so block_size needs only be larger than 1426.
   n_layer: 2
   n_head: 4
-  n_embd:  480 # don't forget that those will be divided between the heads, so if the embedding is of size 40 and you have 4 heads, it's 10 featurs for each which is sort of riddiculous
+  n_embd:  360 # don't forget that those will be divided between the heads, so if the embedding is of size 40 and you have 4 heads, it's 10 featurs for each which is sort of riddiculous
   bias: 0 #the original nanoGPT code says that turning it off produces better results
   dropout_p: 0.1 #nanoGPT original code says 0.0 is good for pre-training, 0.1 is good for fine-tuning
 input_normalization:
   normalize: {"bds": True, "obs": True} #action normalization is unavailable
   env_type: "navigation_env" #only needed if the normalize dict above has keys that are True. Currenlty, the only available choice in 'navigation_env'
 train_cfg:
-  data_path_train: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/10_8/merged_12345/archive_transformed_actions_train.pkl"
-  data_path_val: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/10_8/merged_12345/archive_transformed_actions_val.pkl"
+  data_path_train: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/6_5/merged_12345/archive_transformed_actions_train.pkl"
+  data_path_val: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/6_5/merged_12345/archive_transformed_actions_val.pkl"
   max_epochs: 5000 # total number of training iterations
   val_frequ: 5 #compute validation loss only every val_frequ iterations
-  batch_size: 28
+  batch_size: 30
   ablate_prompt: False #for bd-based only pretraining
   adamW: 
       learning_rate : 5e-3 # max learning rate 
@@ -29,12 +29,11 @@ train_cfg:
       grad_clip : 0.0 # clip gradients at this value, or disable if == 0.0
   schedule:
     decay_lr: True
-    lr_decay_steps : 500000 # 
-    #lr_decay_steps : 50000 # 
-    warmup_steps: 5000 # how many steps to warm up for
+    lr_decay_steps : 300000 # 
+    warmup_steps: 1000 # how many steps to warm up for
     min_lr : 5e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 test_cfg:
-  data_path: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/10_8/merged_12345/archive_transformed_actions_test.pkl"
+  data_path: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/6_5/merged_12345/archive_transformed_actions_test.pkl"
   #you can provide a list of indexes into the test archive that will be skipped (useful if you want to remove some generated examples that are too close to the train data, to avoid leakage)
   exclude_file: "/tmp/exclude_file.json" 
   batch_size: 16

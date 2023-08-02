@@ -477,8 +477,8 @@ class GPT_QDRL(nn.Module):
                 #accuracy=(filtered_diff_acc**2).mean().item()
                 accuracy=(diff_ac**2).mean().item()
 
-                see_tensor=torch.cat([act_tensor,action_pred],-1).detach().cpu().numpy()
-                print(see_tensor)
+                #see_tensor=torch.cat([act_tensor,action_pred],-1).detach().cpu().numpy()
+                #print(see_tensor)
 
                 predicted_actions=None
 
