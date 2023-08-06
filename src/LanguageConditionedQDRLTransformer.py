@@ -39,11 +39,33 @@ def main_train(
     print(colored(f"Created train_val log directory: {train_val_log_path}","magenta",attrs=["bold"]))
 
     learning_rate=float(cfg["adamW"]["learning_rate"])
-    optimizer=model.configure_optimizers(
-            float(cfg["adamW"]["weight_decay"]),
-            learning_rate,
-            (float(cfg["adamW"]["beta1"]),float(cfg["adamW"]["beta2"])),
-            device_type=device.type)
+
+    if not any(cfg["only_train"].values()):
+        print(colored("[Info] The model will be trained end to end.", "green", attrs=["bold"]))
+        optimizer=model.configure_optimizers(
+                float(cfg["adamW"]["weight_decay"]),
+                learning_rate,
+                (float(cfg["adamW"]["beta1"]),float(cfg["adamW"]["beta2"])),
+                device_type=device.type)
+    else:
+        print(colored("[Info] The backbone has been frozen, only some heads will be trained.", "green", attrs=["bold"]))
+        param_groups= []
+
+        for param in model.parameters():#to reduce unnecessary memory consumption
+            param.requires_grad=False
+        
+        if cfg["only_train"]["cluster_idx_heads"]:
+            for param in model.action_cluster_heads.parameters():
+                param.requires_grad=True
+            param_groups.append({'params': model.action_cluster_heads.parameters()})#, 'weight_decay': float(cfg["adamW"]["weight_decay"])})
+        if cfg["only_train"]["cluster_offset_head"]:
+            for param in model.action_prediction_head_offsets.parameters():
+                param.requires_grad=True
+            param_groups.append({'params': model.action_prediction_head_offsets.parameters()})#, 'weight_decay': float(cfg["adamW"]["weight_decay"])})
+
+        optimizer=torch.optim.Adam(param_groups,lr=learning_rate)
+
+    #pdb.set_trace()
 
     num_train_steps=0#steps, not epochs
     train_loss_hist=[]
@@ -91,7 +113,8 @@ def main_train(
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
-        for batch in tqdm.tqdm(train_loader,desc="epoch progress (train)",leave=False):
+        tqdm_train_loader=tqdm.tqdm(train_loader,desc="epoch progress (train)",leave=False)
+        for batch in tqdm_train_loader:
 
             optimizer.zero_grad()
 
@@ -116,8 +139,11 @@ def main_train(
             train_term_2_epc.append(term_2)
             train_acc_epc.append(accuracy)
 
-            if cfg["adamW"]["grad_clip"]!=0.0:
+            if float(cfg["adamW"]["grad_clip"])!=0.0:
+                pdb.set_trace()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), cfg["adamW"]["grad_clip"])
+
+            tqdm_train_loader.set_postfix({"batch loss":loss.item()})
         train_loss_hist.append(np.mean(train_loss_epc))
         train_term_1_hist.append(np.mean(train_term_1_epc))
         train_term_2_hist.append(np.mean(train_term_2_epc))
@@ -387,7 +413,14 @@ if __name__=="__main__":
                 )
 
         _model=nanoGPT_QDRL.GPT_QDRL(_gpt_cfg)
-        _model.to(_device)
+
+    #only has an effect if a request to change a head is made
+    _model=_model.reconfigure_heads(_config["model_cfg"]["replace_head"])
+
+    if any(_config["model_cfg"]["replace_head"].values()):
+        assert _config["train_model"] or not _config["deploy_in_env"], "You are not training the model but have asked to reinitialize heads for testing/deployement. That doesn't sound wise."
+
+    _model.to(_device)
 
     _input_normalizer=None
     _nav_env=None
@@ -449,6 +482,10 @@ if __name__=="__main__":
         #basename="/tmp/traj_dir/"
         basename="/home/achkan//Desktop/traj_dir_tmp/"
         for prompt in prompt_lst:
+
+            #if len(prompt)>300:
+            #    num_prompts+=1
+            #    continue
 
             generate_traj(
                     prompt,

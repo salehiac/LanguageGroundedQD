@@ -100,12 +100,12 @@ class RLMLP(torch.nn.Module):
     and its c_fc is initialized differently because of that. I didn't want to change that behavior from the original repo
     """
 
-    def __init__(self, in_sz, emb_sz, dropout=0.0, bias=True, scale_out_put=-1):
+    def __init__(self, in_sz, h_sz, out_sz, dropout=0.0, bias=True, scale_out_put=-1):
         
         super().__init__()
-        self.l1=torch.nn.Linear(in_sz, 2*emb_sz, bias)
-        self.l2=torch.nn.Linear(2*emb_sz, emb_sz, bias)
-        self.l3=torch.nn.Linear(emb_sz, emb_sz, bias)
+        self.l1=torch.nn.Linear(in_sz, 2*h_sz, bias)
+        self.l2=torch.nn.Linear(2*h_sz, 2*h_sz, bias)
+        self.l3=torch.nn.Linear(2*h_sz, out_sz, bias)
         self.nonlin=torch.nn.GELU()
         self.dropout=torch.nn.Dropout(dropout)
         self.scale_out_put=scale_out_put
@@ -117,7 +117,7 @@ class RLMLP(torch.nn.Module):
         x=self.nonlin(x)
         x=self.l3(x)
         x=self.dropout(x)
-        
+       
         if self.scale_out_put!=-1:
             x=torch.tanh(x)*self.scale_out_put
 
@@ -292,9 +292,20 @@ class GPT_QDRL(nn.Module):
             word_token_embedding = nn.Embedding(config.vocab_size, config.n_embd), 
             word_pos_embedding = nn.Embedding(config.block_size, config.n_embd), 
             timestamp_embedding = nn.Embedding(1000, config.n_embd), #those are episode timesteps the 1000 here should be env.max_steps, TODO: don't hardcode that
-            bd_embedding=RLMLP(config.n_bd_dims, config.n_embd,dropout=self.config.dropout),
-            obs_embedding=RLMLP(config.n_obs_dims, config.n_embd,dropout=self.config.dropout),
-            act_embedding=RLMLP(config.n_action_dims, config.n_embd),
+            bd_embedding=RLMLP(
+                config.n_bd_dims,
+                h_sz=config.n_embd,
+                out_sz=config.n_embd,
+                dropout=self.config.dropout),
+            obs_embedding=RLMLP(
+                config.n_obs_dims, 
+                h_sz=config.n_embd,
+                out_sz=config.n_embd,
+                dropout=self.config.dropout),
+            act_embedding=RLMLP(
+                config.n_action_dims,
+                h_sz=config.n_embd,
+                out_sz=config.n_embd),
             drop = nn.Dropout(config.dropout),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
             ln_f = LayerNorm(config.n_embd, bias=config.bias),
@@ -303,11 +314,23 @@ class GPT_QDRL(nn.Module):
         self.action_cluster_heads=nn.ModuleList()
         for a_i in range(self.config.n_action_dims):
             self.action_cluster_heads.append(
-                    RLMLP(config.n_embd, config.kmeans_obj_lst[a_i].cluster_centers_.shape[0],scale_out_put=-1,dropout=self.config.dropout)
+                    RLMLP(
+                        in_sz=config.n_embd, 
+                        #h_sz=config.kmeans_obj_lst[a_i].cluster_centers_.shape[0],#that becomes a rather tiny hidden space though, but it seems to work well
+                        h_sz=32,
+                        out_sz=config.kmeans_obj_lst[a_i].cluster_centers_.shape[0],
+                        scale_out_put=-1,
+                        dropout=self.config.dropout)
                     )
 
         self.num_clusters=np.prod([x.cluster_centers_.shape[0] for x in self.config.kmeans_obj_lst])
-        self.action_prediction_head_offsets=RLMLP(config.n_embd,self.num_clusters*config.n_action_dims,scale_out_put=-1,dropout=self.config.dropout)
+        self.action_prediction_head_offsets=RLMLP(
+                in_sz=config.n_embd,
+                #h_sz=self.num_clusters*config.n_action_dims,#that seems to be too small, replace it in next iterations
+                h_sz=512,
+                out_sz=self.num_clusters*config.n_action_dims,
+                scale_out_put=-1,
+                dropout=self.config.dropout)
 
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -317,6 +340,34 @@ class GPT_QDRL(nn.Module):
 
         # report number of parameters
         print("number of parameters: %.2fM" % (self.get_num_params()/1e6,))
+
+        self.term_ratio_hist=[]
+
+    def reconfigure_heads(self, cfg):
+
+        if cfg["cluster_idx_heads"]:
+            self.action_cluster_heads=nn.ModuleList()
+            for a_i in range(self.config.n_action_dims):
+                self.action_cluster_heads.append(
+                        RLMLP(
+                            in_sz=self.config.n_embd, 
+                            h_sz=cfg["cluster_idx_heads"],
+                            out_sz=self.config.kmeans_obj_lst[a_i].cluster_centers_.shape[0],
+                            scale_out_put=-1,dropout=self.config.dropout)
+                        )
+            
+            print(colored("[WARNING] cluster_idx_heads were re-initialized with random weights, as specified in yaml config.","red",attrs=["bold"]))
+
+        if cfg["cluster_offset_head"]:
+            self.action_prediction_head_offsets=RLMLP(
+                in_sz=self.config.n_embd,
+                h_sz=cfg["cluster_offset_head"],
+                out_sz=self.num_clusters*self.config.n_action_dims,
+                scale_out_put=-1,dropout=self.config.dropout)
+            
+            print(colored("[WARNING] cluster_offset_head was re-initialized with random weights, as specified in yaml config.","red",attrs=["bold"]))
+
+        return self
 
     def get_num_params(self):
         """
@@ -419,7 +470,7 @@ class GPT_QDRL(nn.Module):
                 
                     #### focal term i
                     predicted_actions_scores_i=self.action_cluster_heads[a_i](zz) #(BB,LL,num_clusters)
-                    gamma=3.0
+                    gamma=2.0
                     proba_mat_i=torch.softmax(predicted_actions_scores_i,dim=-1)
                     p_t_i=proba_mat_i.gather(2,cluster_centers_ids[:,:,[a_i]])
                     focal_vals_i=-((1-p_t_i)**gamma)*torch.log(p_t_i+1e-8)
@@ -451,8 +502,13 @@ class GPT_QDRL(nn.Module):
                 #term_2=(filtered_diff**2).mean()#same as MSELoss with "mean" reduction
                 
                 term_2=(diff**2).mean()#same as MSELoss with "mean" reduction
-
-                loss=term_1+term_2
+               
+                #print("term_1==",term_1, "term_2==",term_2)
+                #self.term_ratio_hist.append(term_1.item()/term_2.item())
+                #print("ratio==",np.mean(self.term_ratio_hist))
+                
+                loss_coef=1.0 #ratio is about 1.43 on average
+                loss=term_1+loss_coef*term_2
 
                 term_1_value=term_1.item()
                 term_2_value=term_2.item()
