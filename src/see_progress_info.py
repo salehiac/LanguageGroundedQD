@@ -19,6 +19,7 @@ if __name__=="__main__":
     fig, ax=plt.subplots(3,1)
 
     #print("train_loss:\n",progress_dict["train_loss"])
+    print("====================================================== MIN ===============================")
     print("MIN train_loss (loss, term_1, term_2, acc):\n",
             min(progress_dict["train_loss"][start_at:]),
             min(progress_dict["train_term_1"][start_at:]),
@@ -30,6 +31,21 @@ if __name__=="__main__":
             min(progress_dict["val_term_1"][start_at:]),
             min(progress_dict["val_term_2"][start_at:]),
             min(progress_dict["val_acc_hist"][start_at:]))
+
+    print("====================================================== LAST ==============================")
+    print("LAST train_loss (loss, term_1, term_2, acc):\n",
+            progress_dict["train_loss"][-1],
+            progress_dict["train_term_1"][-1],
+            progress_dict["train_term_2"][-1],
+            progress_dict["train_acc_hist"][-1])
+    print("LAST val_loss (loss, term_1, term_2):\n",
+            progress_dict["val_loss"][-1],
+            progress_dict["val_term_1"][-1],
+            progress_dict["val_term_2"][-1],
+            progress_dict["val_acc_hist"][-1])
+    print("==========================================================================================")
+
+
 
     ax[0].plot(progress_dict["train_loss"][start_at:],"r",label="train")
     ax[1].plot(progress_dict["train_term_1"][start_at:],"y",label="train term_1 (cluster id)")

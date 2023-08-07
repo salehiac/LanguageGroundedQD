@@ -94,6 +94,12 @@ class MLP(nn.Module):
         x = self.dropout(x)
         return x
 
+def _identity(x):
+    """
+    because pickle doesn't like lambdas
+    """
+    return x
+
 class RLMLP(torch.nn.Module):
     """
     the main reason this is separate from the MLP class here is that the MLP module is used in residual layers  
@@ -107,7 +113,7 @@ class RLMLP(torch.nn.Module):
         self.l2=torch.nn.Linear(2*h_sz, 2*h_sz, bias)
         self.l3=torch.nn.Linear(2*h_sz, out_sz, bias)
         self.nonlin=torch.nn.GELU()
-        self.dropout=torch.nn.Dropout(dropout)
+        self.dropout=torch.nn.Dropout(dropout) if dropout else _identity
         self.scale_out_put=scale_out_put
 
     def forward(self, x):
@@ -296,16 +302,17 @@ class GPT_QDRL(nn.Module):
                 config.n_bd_dims,
                 h_sz=config.n_embd,
                 out_sz=config.n_embd,
-                dropout=self.config.dropout),
+                dropout=False),
             obs_embedding=RLMLP(
                 config.n_obs_dims, 
                 h_sz=config.n_embd,
                 out_sz=config.n_embd,
-                dropout=self.config.dropout),
+                dropout=False),
             act_embedding=RLMLP(
                 config.n_action_dims,
                 h_sz=config.n_embd,
-                out_sz=config.n_embd),
+                out_sz=config.n_embd,
+                dropout=False),
             drop = nn.Dropout(config.dropout),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
             ln_f = LayerNorm(config.n_embd, bias=config.bias),
@@ -320,7 +327,7 @@ class GPT_QDRL(nn.Module):
                         h_sz=32,
                         out_sz=config.kmeans_obj_lst[a_i].cluster_centers_.shape[0],
                         scale_out_put=-1,
-                        dropout=self.config.dropout)
+                        dropout=False)#adding dropout to the last layer would be extremly dumb
                     )
 
         self.num_clusters=np.prod([x.cluster_centers_.shape[0] for x in self.config.kmeans_obj_lst])
@@ -330,7 +337,7 @@ class GPT_QDRL(nn.Module):
                 h_sz=512,
                 out_sz=self.num_clusters*config.n_action_dims,
                 scale_out_put=-1,
-                dropout=self.config.dropout)
+                dropout=False)#adding droupout to the last layer would be extremely dumb
 
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -353,7 +360,8 @@ class GPT_QDRL(nn.Module):
                             in_sz=self.config.n_embd, 
                             h_sz=cfg["cluster_idx_heads"],
                             out_sz=self.config.kmeans_obj_lst[a_i].cluster_centers_.shape[0],
-                            scale_out_put=-1,dropout=self.config.dropout)
+                            scale_out_put=-1,
+                            dropout=False)
                         )
             
             print(colored("[WARNING] cluster_idx_heads were re-initialized with random weights, as specified in yaml config.","red",attrs=["bold"]))
@@ -363,7 +371,8 @@ class GPT_QDRL(nn.Module):
                 in_sz=self.config.n_embd,
                 h_sz=cfg["cluster_offset_head"],
                 out_sz=self.num_clusters*self.config.n_action_dims,
-                scale_out_put=-1,dropout=self.config.dropout)
+                scale_out_put=-1,
+                dropout=False)
             
             print(colored("[WARNING] cluster_offset_head was re-initialized with random weights, as specified in yaml config.","red",attrs=["bold"]))
 
