@@ -4,8 +4,8 @@ test_model: False #
 deploy_in_env: True 
 model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_hz7RY06aNX"
-  #kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_4_4.pkl"
-  kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_4_4_clamped.pkl"
+  #kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_4_4.pkl" #learned on 12345
+  kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_4_4_clamped.pkl" #learned on 123456
   block_size: 1435 #In the current dataset, the max token length is 226, and the toy env's episode length is 400 (=>1200 tokens), so block_size needs only be larger than 1426.
   n_layer: 2
   n_head: 4

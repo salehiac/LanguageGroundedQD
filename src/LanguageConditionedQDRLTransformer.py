@@ -483,10 +483,7 @@ if __name__=="__main__":
         basename="/home/achkan//Desktop/traj_dir_tmp/"
         for prompt in prompt_lst:
 
-            #if len(prompt)>300:
-            #    num_prompts+=1
-            #    continue
-
+            print(f"processing prompt {num_prompts}/{len(prompt_lst)}")
             generate_traj(
                     prompt,
                     num_prompts,
@@ -499,19 +496,4 @@ if __name__=="__main__":
                     ablate_bd=_config["deploy_cfg"]["ablate_bd"])
             num_prompts+=1
 
-        #batch_size=4
-        #for b_i in range(len(prompt_lst)//batch_size):
-
-        #    basename="/tmp/traj_dir/"
-        #    argument_lst=list(zip(
-        #            prompt_lst[b_i*batch_size:(b_i+1)*batch_size],
-        #            list(range(b_i*batch_size,(b_i+1)*batch_size)),
-        #            [basename]*batch_size,
-        #            [_nav_env.get_bd_dims()]*batch_size,
-        #            [policy]*batch_size,
-        #            [_nav_env]*batch_size))
-
-        #    _=list(futures.map(
-        #        lambda x: generate_traj(*x),
-        #        argument_lst))
 
