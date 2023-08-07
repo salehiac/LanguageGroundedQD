@@ -374,6 +374,12 @@ if __name__ == "__main__":
             )
 
     _parser.add_argument(
+            '--clamp_actions',
+            action="store_true",
+            help="if true, limits actions to the range that is tolerated by the gym env"
+            )
+
+    _parser.add_argument(
             "--prepare_actions_for_multimodal",
             type=int,
             nargs="*",
@@ -698,6 +704,22 @@ if __name__ == "__main__":
 
             with open(f"{_args.out_dir}/shuffled_archive.pkl","wb") as fl:
                 pickle.dump(_in_arch,fl)
+            print("wrote shuffled archive to --out_dir")
+
+        if _args.clamp_actions:
+
+            _env=make_navigation_env()
+            _clamp_msg="the clamp_action option is only implemented for actions where all action dimensions have the same range. Please extend the implementation if needed."
+            assert (_env.env.action_space.high==_env.env.action_space.high[0]).all(), _clamp_msg 
+            assert (_env.env.action_space.low==_env.env.action_space.low[0]).all(), _clamp_msg
+
+            for ag in _in_arch:
+                ag._tau["action"]=np.clip(ag._tau["action"], _env.env.action_space.low[0], _env.env.action_space.high[0])
+
+            with open(f"{_args.out_dir}/archive_clamped.pkl","wb") as fl:
+                pickle.dump(_in_arch,fl)
+            print("wrote clamped archive to --out_dir")
+
 
     if _args.merge_archives:
 
@@ -754,6 +776,7 @@ if __name__ == "__main__":
         print(f"there were {len(_intersections)} intersecting pairs")
         with open(f"{_args.out_dir}/duplicates.json","w") as fl:
             json.dump(_intersections,fl)
+
 
 
 

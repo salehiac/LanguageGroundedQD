@@ -4,9 +4,8 @@ test_model: False #
 deploy_in_env: True 
 model_cfg: 
   learned_tokenizer: "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/tokenizers/tokenizer_hz7RY06aNX"
-  kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_4_4.pkl"
-  #kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_6_5.pkl"
-  #kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_10_8.pkl"
+  #kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_4_4.pkl"
+  kmeans:  "/home/achkan/misc_libs/LanguageGroundedQD_venvs/venv_1/src/LanguageGroundedQD/src/models/kmeans/cluster_centers_per_dim_4_4_clamped.pkl"
   block_size: 1435 #In the current dataset, the max token length is 226, and the toy env's episode length is 400 (=>1200 tokens), so block_size needs only be larger than 1426.
   n_layer: 2
   n_head: 4
@@ -20,10 +19,10 @@ input_normalization:
   normalize: {"bds": True, "obs": True} #action normalization is unavailable
   env_type: "navigation_env" #only needed if the normalize dict above has keys that are True. Currenlty, the only available choice in 'navigation_env'
 train_cfg:
-  data_path_train: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_12345/archive_transformed_actions_train.pkl"
-  data_path_val: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_12345/archive_transformed_actions_val.pkl"
-  #data_path_train: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_123456_shorter_text/archive_transformed_actions_train.pkl"
-  #data_path_val: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_123456_shorter_text/archive_transformed_actions_val.pkl"
+  #data_path_train: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_12345/archive_transformed_actions_train.pkl"
+  #data_path_val: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_12345/archive_transformed_actions_val.pkl"
+  data_path_train: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_123456_clamped/archive_clamped_transformed_actions_train.pkl"
+  data_path_val: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_123456_clamped/archive_clamped_transformed_actions_val.pkl"
   max_epochs: 5000 # total number of training iterations
   val_frequ: 5 #compute validation loss only every val_frequ iterations
   batch_size: 30
@@ -41,8 +40,8 @@ train_cfg:
     min_lr : 5e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
   only_train: {"cluster_idx_heads": False, "cluster_offset_head": False} #disables backbone training and only opitmizes the chosen heads. Not that both values can be True at once.
 test_cfg:
-  data_path: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_12345/archive_transformed_actions_test.pkl"
-  #data_path: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_123456_shorter_text/archive_transformed_actions_test.pkl"
+  #data_path: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_12345/archive_transformed_actions_test.pkl"
+  data_path: "/home/achkan/datasets/qd_llm/per_dim_clusters_action_repr/4_4/merged_123456_clamped/archive_clamped_transformed_actions_test.pkl"
   #you can provide a list of indexes into the test archive that will be skipped (useful if you want to remove some generated examples that are too close to the train data, to avoid leakage)
   exclude_file: "/tmp/exclude_file.json" 
   batch_size: 16
@@ -58,6 +57,8 @@ deploy_cfg:
 device: "cuda"
 dtype: "float32" 
 pretrained_model: ""
+### good model, trained on merged_12345, 4x4 clusters (NOT clamped), focal loss and MSE, used for the current results being scored by gpt-4.
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_597498/model_525" 
 seed: 0
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"
