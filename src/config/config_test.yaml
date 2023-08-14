@@ -1,5 +1,5 @@
 ---
-train_model: True #if False, a pretrained model should be provided.
+train_model: False #if False, a pretrained model should be provided.
 test_model: False #
 deploy_in_env: True 
 model_cfg: 
@@ -56,9 +56,10 @@ deploy_cfg:
   ablate_bd: False 
 device: "cuda"
 dtype: "float32" 
-pretrained_model: ""
+#pretrained_model: ""
+#pretrained_model: "/home/achkan/Desktop/tmp_desktop//train_val_log_2595526/model_455" #
 ### good model, trained on merged_12345, 4x4 clusters (NOT clamped), focal loss and MSE, used for the current results being scored by gpt-4.
-#pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_597498/model_525" 
+pretrained_model: "/home/achkan/Desktop/tmp_desktop/train_val_log_597498/model_525" 
 seed: 0
 logging: 
   log_dir: "/home/achkan/Desktop/tmp_desktop/"

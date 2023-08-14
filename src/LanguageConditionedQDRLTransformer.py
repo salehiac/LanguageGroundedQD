@@ -271,7 +271,8 @@ def generate_traj(
         nav_env,
         scene,
         ablate_text:bool,
-        ablate_bd:bool):
+        ablate_bd:bool,
+        num_trials:int):
 
 
     out_fn_fig=f"{basename}/fig_{idx}.png"
@@ -279,15 +280,23 @@ def generate_traj(
     out_fn_bds=f"{basename}/bds_{idx}.json"
     bds_lst=prompt[1:1+bd_dims] if not ablate_bd else [0,0]
     prompt_text=prompt[0] if not ablate_text else ""
-    policy.reset(prompt_text=prompt_text,
-            prompt_bd=torch.tensor(bds_lst).reshape(1,2))
+    best_bd_dist=float("inf")
 
-    (fitness,
-            tau_np,
-            behavior2d_np,
-            bd,
-            task_solved
-            )=nav_env(policy)
+    bd_dist_lst=[]
+    for trial_i in range(num_trials):
+
+        print(colored(f"Trial {trial_i+1}/{num_trials}","magenta",attrs=["bold"]))
+        policy.reset(prompt_text=prompt_text,
+                prompt_bd=torch.tensor(bds_lst).reshape(1,2))
+
+        (_,_,behavior2d_np_i,bd_i,_)=nav_env(policy)
+        dist_i=np.linalg.norm(np.array(bds_lst)/3-bd_i.reshape(2)/3)
+        if dist_i<best_bd_dist:
+            best_bd_dist=dist_i
+            behavior2d_np=behavior2d_np_i
+            bd=bd_i
+        bd_dist_lst.append(dist_i)#just to compute std
+        print("trial bd_dist==",dist_i)
 
     fig,_=scene.display(display_bbox=False,
             hold_on=True,
@@ -310,8 +319,13 @@ def generate_traj(
         json.dump({
             "target_bds":[x/3 for x in bds_lst],
             "reached_bds":(bd.reshape(2)/3).tolist(),
-            "dist":np.linalg.norm(np.array(bds_lst)/3-bd.reshape(2)/3)
+            "dist":np.linalg.norm(np.array(bds_lst)/3-bd.reshape(2)/3),
+            "num_trials":num_trials,
+            "dist_std_over_trials":np.std(bd_dist_lst),
+            "dist_mean_over_trials":np.mean(bd_dist_lst),
+            "dist_median_over_trials":np.median(bd_dist_lst)
             },fl)
+
    
     print("Dist to target bd==",np.linalg.norm(np.array(bds_lst)/3-bd.reshape(2)/3))
     
@@ -493,7 +507,8 @@ if __name__=="__main__":
                     _nav_env,
                     scene,
                     ablate_text=_config["deploy_cfg"]["ablate_text"],
-                    ablate_bd=_config["deploy_cfg"]["ablate_bd"])
+                    ablate_bd=_config["deploy_cfg"]["ablate_bd"],
+                    num_trials=5)
             num_prompts+=1
 
 
