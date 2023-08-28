@@ -493,8 +493,7 @@ if __name__=="__main__":
         scene = create_env_with_objects("./environment/")
 
         num_prompts=0
-        #basename="/tmp/traj_dir/"
-        basename="/home/achkan//Desktop/traj_dir_tmp/"
+        basename=MiscUtils.create_directory_with_pid(_config["logging"]["log_dir"]+"/deploy_log_",remove_if_exists=True,no_pid=False)
         for prompt in prompt_lst:
 
             print(f"processing prompt {num_prompts}/{len(prompt_lst)}")
