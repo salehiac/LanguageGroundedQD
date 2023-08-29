@@ -30,7 +30,7 @@ You need to add your openAI API key to the script `get_trajectory_description.py
 Run the following commands, *using the archive generated at each step* as input to the next:
 ```
 cd src
-python3 dataset_tools.py --generate_archive --out_dir <some_path>  #this will use NoveltySearch to generate an archive of policies
+python3 -m scoop -n <num_processes> dataset_tools.py --generate_archive --out_dir <some_path>  #this will use NoveltySearch to generate an archive of policies. A good rule of thumb is to set num_processes to approximately the number of cores. 
 python3 dataset_tools.py --fix_duplicates  --input_archive <path/to/generated_archive> --out_dir <some_path> 
 python3 dataset_tools.py --input_archive <path/to/fixed_archive> --annotate_archive --out_dir <some_path>
 python3 dataset_tools.py --export_annotations --input_archive <path/to/annotated_archive> --out_dir <annotations_dir>
@@ -71,6 +71,8 @@ python3 LanguageConditionedQDRLTransformer.py --config config/config.yaml
 ```
 
 to train the transformer. Note that you can pass an empty string to `["depoly_cfg"]["prompts"]` in the config file, as the `depoly_cfg` section is not relevant for training.
+
+The training process will create a logging directory `["logging"]["log_dir"]/train_val_log_{PID_or_random_str}` with a randomized name, where various statistics such as loss values (in *json format) as well as model checkpoints will be saved during training.
 
 ## Evaluation
 

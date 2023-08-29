@@ -87,7 +87,7 @@ def main_train(model, train_loader, val_loader, cfg, context_length,
     best_val_acc = float("inf")
     tqdm_epoch = tqdm.tqdm(range(cfg["max_epochs"]), desc="epochs")
 
-    if cfg["schedule"]["decay_lr"]:
+    if cfg["schedule"]["decay_lr"] and cfg["schedule"]["plot_planned_scheduling"]:
         MiscUtils.plot_planned_scheduling(
             cfg["schedule"]["warmup_steps"],
             cfg["schedule"]["lr_decay_steps"],
