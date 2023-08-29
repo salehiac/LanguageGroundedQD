@@ -175,20 +175,10 @@ def fetch_description(in_dir,outdir,start_idx,end_idx,gpt3_mode=True):
 
 if __name__=="__main__":
 
-
-    id_lst=[
-            2227,
-            ]
-
-
-    for the_idx in id_lst:
-
-        _outdir="/home/achkan/Desktop/train_data_3/"
-        print("IDX==",the_idx)
-        _start_idx=the_idx
-        _end_idx=_start_idx+1
-        #_end_idx=3922
+    _outdir="/tmp/description_output/"
+    _start_idx=0
+    _end_idx=25000
         
-        fetch_description(sys.argv[1],outdir=_outdir,start_idx=_start_idx,end_idx=_end_idx)
+    fetch_description(sys.argv[1],outdir=_outdir,start_idx=_start_idx,end_idx=_end_idx)
 
 
