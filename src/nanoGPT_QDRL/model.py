@@ -501,18 +501,8 @@ class GPT_QDRL(nn.Module):
                 
                 diff=hat_act-act_tensor.round(decimals=1)
 
-                
-                #err_thresh=0.05
-                #mask=torch.abs(diff)>err_thresh
-                #filtered_diff=mask*diff
-                #term_2=(filtered_diff**2).mean()#same as MSELoss with "mean" reduction
-                
                 term_2=(diff**2).mean()#same as MSELoss with "mean" reduction
                
-                #print("term_1==",term_1, "term_2==",term_2)
-                #self.term_ratio_hist.append(term_1.item()/term_2.item())
-                #print("ratio==",np.mean(self.term_ratio_hist))
-                
                 loss_coef=1.0 #ratio is about 1.43 on average
                 loss=term_1+loss_coef*term_2
 
@@ -534,13 +524,7 @@ class GPT_QDRL(nn.Module):
 
                 diff_ac=action_pred.squeeze(2)-act_tensor.round(decimals=1)
                 
-                #mask_acc=torch.abs(diff_ac)>err_thresh
-                #filtered_diff_acc=mask_acc*diff_ac
-                #accuracy=(filtered_diff_acc**2).mean().item()
                 accuracy=(diff_ac**2).mean().item()
-
-                #see_tensor=torch.cat([act_tensor,action_pred],-1).detach().cpu().numpy()
-                #print(see_tensor)
 
                 predicted_actions=None
 
@@ -567,9 +551,6 @@ class GPT_QDRL(nn.Module):
                     sampled_act_i=torch.multinomial(predicted_actions_scores_i.reshape(-1,self.config.kmeans_obj_lst[a_i].cluster_centers_.shape[0]),num_samples=BB)
                     sampled_act_i=sampled_act_i.reshape(BB,1,1)
 
-                    #print("sampled_act_i==",sampled_act_i)
-                    #plt.bar(range(predicted_actions_scores_i.shape[-1]), predicted_actions_scores_i.flatten().detach().cpu().numpy())
-                    #plt.show()
                 elif generation_strategy=="argmax":
                     sampled_act_i=predicted_actions_scores_i.argmax(dim=-1).reshape(BB,1,1)
                 elif generation_strategy=="nucleus":
