@@ -11,7 +11,7 @@ arXiv preprint https://arxiv.org/abs/2308.13278
 
 **Note 1:** This repository requires `python3.8+` and `pytorch<2.0`. The results in the paper were produced with pytorch `1.11.0+cu113`. 
 
-**Note 2:** The transformer in this repo builds on the nanoGPT (https://github.com/karpathy/nanoGPT) language model, which it extends to the conditional RL/QD case.
+**Note 2:** The transformer included in this repo builds on the nanoGPT (https://github.com/karpathy/nanoGPT) language model, which it extends to the conditional RL/QD case.
 
 ## Prerequisites
 
@@ -27,24 +27,25 @@ You need to add your openAI API key to the script `get_trajectory_description.py
 
 ## Generating datasets 
 
-Run the following commands, using the archive generated at each step as input to the next:
+Run the following commands, *using the archive generated at each step* as input to the next:
 ```
+cd src
 python3 dataset_tools.py --generate_archive --out_dir <some_path>  #this will use NoveltySearch to generate an archive of policies
-python3 dataset_tools.py --fix_duplicates  --input_archive <generated_archive> --out_dir <some_path/fixed_archive>
-python3 dataset_tools.py --input_archive <generated_archive> --annotate_archive --out_dir <some_path/annotated_archive>
-python3 dataset_tools.py --export_annotations --out_dir <annotations_dir>
+python3 dataset_tools.py --fix_duplicates  --input_archive <path/to/generated_archive> --out_dir <some_path> 
+python3 dataset_tools.py --input_archive <path/to/fixed_archive> --annotate_archive --out_dir <some_path>
+python3 dataset_tools.py --export_annotations --input_archive <path/to/annotated_archive> --out_dir <annotations_dir>
 ```
 
 Now use the `get_trajectory_description` script to generate descriptions for the annotations that have been written to `annotations_dir`:
 
 ```
-python3 get_trajectory_description <annotations_dir> <descriptions_dir>
+python3 get_trajectory_description <annotations_dir> <description_dir> #the output is written to description_dir
 ```
 
 Finally, add the llm generated descriptions to the archive:
 
 ```
-python3 dataset_tools.py --input_archive <some_path/annotated_archive> --add_llm_descriptions <path_to_descriptions> --out_dir <some_path/described_archive>
+python3 dataset_tools.py --input_archive <path/to/annotated_archive> --add_llm_descriptions <description_dir> --out_dir <some_path> 
 ```
 
 It is recommended that you generate several archives (preferably with different values for `NavigationEnv.dist_thresh`), that you can then combine using `python3 dataset_tools --merge_archives`. Once you have a sufficiently large dataset, you can call 
@@ -53,7 +54,7 @@ It is recommended that you generate several archives (preferably with different 
 python3 dataset_tools --prepare_actions_for_multimodal <num_dim_0_clusters> <num_dim_1_clusters> --out_dir <some_path/transformed_archive.pkl>
 ```
 
-to perform kmeans clustering and express the actions as `cluster_center+offset`. Once this transformed archive has been obtained, you can divide it into train/val/test splits via `--split_archive`, *e.g.* 
+to perform kmeans clustering and express the actions as `cluster_center+offset`, as specified in the paper. Once this transformed archive has been obtained, you can divide it into train/val/test splits via `--split_archive`, *e.g.* 
 
 ```
 python3 dataset_tools --split_archive  0.8 0.1 0.1 #80%,10%,10% of the archive used for train, val, test splits
@@ -88,6 +89,6 @@ python3 LanguageConditionedQDRLTransformer.py --config config/config.yaml
 ```
 will run the transformer in the enviromnent for each test in the `prompt_list.json` file, annotate the trajectory with semantic information, and save the results in the path specified under `logging` in the config file. Once this is done, those results can be used as input to the `src/eval_traj.py` script.
 
-# Copyright notes
+# Additional notes
 
 The images used in the toy environment to indicate household objects are vector images under creative commons licence, downloaded from openclipart.org.
