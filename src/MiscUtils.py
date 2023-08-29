@@ -146,35 +146,3 @@ def add_newlines(string, chars_per_line=60):
     return '\n'.join(lines)
 
 
-if __name__=="__main__":
-
-    test_normalize_th=False
-    if test_normalize_th:
-        _test_tensor=torch.rand(4,5)*100
-        _normalized_tensor,_inv_f=normalize_th(_test_tensor, low=-100,high=100,scale=1.0,return_inverse_function=True)
-        _recons=_inv_f(_normalized_tensor)
-        print(f"test_tensor\n {_test_tensor}\nnormalized_tensor\n {_normalized_tensor}\n************")
-        print(f"inverse function correct? {torch.allclose(_test_tensor, _recons)}\n********************************")
-
-        _test_tensor=torch.rand(4,5)*5+4
-        _normalized_tensor, _inv_f=normalize_th(_test_tensor, low=-2,high=16,scale=1.0,return_inverse_function=True)
-        print(f"test_tensor\n {_test_tensor}\nnormalized_tensor\n {_normalized_tensor}\n************")
-        _recons=_inv_f(_normalized_tensor)
-        print(f"inverse function correct? {torch.allclose(_test_tensor, _recons)}\n********************************")
-   
-    plot_lr_schedule=True
-    if plot_lr_schedule:
-
-
-        _warmup_iters=200#a bit more than one epoch with the toy dataset and batchsize 32
-        _lr_decay_iters=76000#with the toy train dataset and batchsize 32, each epoch is made of 162 updates => The first and a half epoch are spent in warmup
-                             #say we have 100 epochs => 162000 updates => let's spend 15000 of those decaying
-        _learning_rate=5e-3
-        _min_lr=5e-5
-        plot_planned_scheduling(
-                _warmup_iters,
-                _lr_decay_iters,
-                _learning_rate,
-                _min_lr)
-
-   

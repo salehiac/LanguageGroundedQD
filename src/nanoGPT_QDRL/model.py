@@ -227,7 +227,6 @@ def process_batch(
 
     text_batch=batch[0]
     text_token_ids=tokenizer(text_batch, padding="max_length", max_length=max_len_pad, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
-    #text_token_ids=tokenizer(text_batch, padding=True, return_tensors="pt").input_ids #padding might not be the most optimal way, but it simplifies things
     T_text=num_text_tokens=text_token_ids.shape[1]
     text_posional_ids=torch.arange(T_text,dtype=torch.long)
  
@@ -323,7 +322,6 @@ class GPT_QDRL(nn.Module):
             self.action_cluster_heads.append(
                     RLMLP(
                         in_sz=config.n_embd, 
-                        #h_sz=config.kmeans_obj_lst[a_i].cluster_centers_.shape[0],#that becomes a rather tiny hidden space though, but it seems to work well
                         h_sz=32,
                         out_sz=config.kmeans_obj_lst[a_i].cluster_centers_.shape[0],
                         scale_out_put=-1,
@@ -333,7 +331,6 @@ class GPT_QDRL(nn.Module):
         self.num_clusters=np.prod([x.cluster_centers_.shape[0] for x in self.config.kmeans_obj_lst])
         self.action_prediction_head_offsets=RLMLP(
                 in_sz=config.n_embd,
-                #h_sz=self.num_clusters*config.n_action_dims,#that seems to be too small, replace it in next iterations
                 h_sz=512,
                 out_sz=self.num_clusters*config.n_action_dims,
                 scale_out_put=-1,
@@ -696,11 +693,6 @@ class QDRLPolicy:
         LL=self.traj_window.shape[0]
         if T_text+3*LL>self.model.config.block_size:
             raise Exception("This should not happen.")
-            ### This was a dumb idea: you can drop observations without giving the transformer an info about its state after the drop. Otherwise, it's infinitely ambiguous
-            #num_drop=2
-            #self.traj_window=self.traj_window[num_drop:,:]
-            #LL-=num_drop
-            #self.traj_start_timestamp+=num_drop
 
         bd_tensor=self.traj_window[:,:self.cfg.n_bd_dims].unsqueeze(0)
         obs_tensor=self.traj_window[:,self.cfg.n_bd_dims:self.cfg.n_bd_dims+self.cfg.n_obs_dims].unsqueeze(0)

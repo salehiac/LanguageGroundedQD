@@ -4,7 +4,6 @@ import argparse
 import numpy as np
 import random
 import functools
-import pdb
 import json
 import matplotlib.pyplot as plt
 
@@ -65,8 +64,6 @@ def main_train(
 
         optimizer=torch.optim.Adam(param_groups,lr=learning_rate)
 
-    #pdb.set_trace()
-
     num_train_steps=0#steps, not epochs
     train_loss_hist=[]
     train_term_1_hist=[]
@@ -80,9 +77,6 @@ def main_train(
     best_val_acc=float("inf")
     tqdm_epoch=tqdm.tqdm(range(cfg["max_epochs"]),desc="epochs")
 
-    #train_loader_iter=iter(train_loader)
-    #pdb.set_trace()
-
     if cfg["schedule"]["decay_lr"]:
         MiscUtils.plot_planned_scheduling(
                 cfg["schedule"]["warmup_steps"],
@@ -94,9 +88,6 @@ def main_train(
 
     for epoch_i in tqdm_epoch:
 
-        #print("NUM_TRAIN_STEPS==",num_train_steps)
-        #pdb.set_trace()
-        
         ##training loop
         model.train()
         train_loss_epc=[]
@@ -310,7 +301,6 @@ def generate_traj(
     plt.savefig(out_fn_fig)
     plt.close()
 
-    #pdb.set_trace()
     with open(out_fn_prompt_annotation_pairs, "w") as fl:
         json.dump({"prompt":prompt_text, "predicted_traj_annotation": annotation},fl)
 
