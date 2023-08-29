@@ -51,19 +51,19 @@ python3 dataset_tools.py --input_archive <path/to/annotated_archive> --add_llm_d
 It is recommended that you generate several archives (preferably with different values for `NavigationEnv.dist_thresh`), that you can then combine using `python3 dataset_tools --merge_archives`. Once you have a sufficiently large dataset, you can call 
 
 ```
-python3 dataset_tools --prepare_actions_for_multimodal <num_dim_0_clusters> <num_dim_1_clusters> --out_dir <some_path/transformed_archive.pkl>
+python3 dataset_tools --prepare_actions_for_multimodal <num_dim_0_clusters> <num_dim_1_clusters> --out_dir <some_path> 
 ```
 
-to perform kmeans clustering and express the actions as `cluster_center+offset`, as specified in the paper. Once this transformed archive has been obtained, you can divide it into train/val/test splits via `--split_archive`, *e.g.* 
+to perform kmeans clustering and express the actions as `cluster_center+offset`, as specified in the paper. This will write two files, `cluster_centers` and `transformed_archive.pkl` to the path given to `--out_dir`. The transformed archive can now be divided into train/val/test splits via `--split_archive`, *e.g.* 
 
 ```
 python3 dataset_tools --split_archive  0.8 0.1 0.1 #80%,10%,10% of the archive used for train, val, test splits
 ```
-Note that splitting the archive shuffles the order of the elements.
+Note that splitting the archive shuffles the order of the elements. The `cluster_centers` file will be used during training as documented below.
 
 ## Training the model
 
-First, please edit the config file `src/config/config.yaml` by replacing the `<path_to_*>` entries with appropriate paths. Note that a trained tokenizer is provided in `src/utils/tokenizers/`, whose path can be specified under the config file's `learned_tokenizer` entry. Alternatively, you can train a tokenizer on your archive's corpus using the `src/TokenizingTools.py` script. Make sure the `train_model` flag is set to True. Once the file is edited, call
+First, please edit the config file `src/config/config.yaml` by replacing the `<path_to_*>` entries with appropriate paths. Note that a trained tokenizer is provided in `src/utils/tokenizers/`, whose path can be specified under the config file's `learned_tokenizer` entry. Alternatively, you can train a tokenizer on your archive's corpus using the `src/TokenizingTools.py` script. Make sure the `train_model` flag is set to True. Note that `["model_cfg"]["kmeans"]` should be set to the path of the `cluster_centers` file that was obtained at the end of the previous section. Once the file is edited, call
 
 ```
 cd src

@@ -751,6 +751,7 @@ if __name__ == "__main__":
                     per_dim=False,
                     arch=_in_arch,
                     num_clusters=_args.prepare_actions_for_multimodal,
+                    save_centers_to=_args.out_dir,
                     read_clusters_from_file=_kmeans_file)[0]
 
                 aacpo = ActionAsCenterPlusOffset(_kmeans)
@@ -776,6 +777,7 @@ if __name__ == "__main__":
                     per_dim=True,
                     arch=_in_arch,
                     num_clusters=_args.prepare_actions_for_multimodal,
+                    save_centers_to=_args.out_dir,
                     read_clusters_from_file=_kmeans_file
                 )  ###_kmeans_lst will be a list length act_dim, with _kmeans_lst[i] a KMeans object
 
