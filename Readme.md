@@ -59,6 +59,7 @@ to perform kmeans clustering and express the actions as `cluster_center+offset`,
 ```
 python3 dataset_tools --split_archive  0.8 0.1 0.1 #80%,10%,10% of the archive used for train, val, test splits
 ```
+Note that splitting the archive shuffles the order of the elements.
 
 ## Training the model
 
